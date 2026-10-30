@@ -1,0 +1,62 @@
+{
+  "name": "only-envoys-whose-view-changes-get-the-change",
+  "description": "A change reaches only the Envoys whose view it changes.",
+  "protocols": ["sotw", "delta"],
+  "serves": ["CDS", "EDS", "LDS", "RDS"],
+  "envoys": [
+    {"name": "one", "view": "v1"},
+    {"name": "two", "view": "v2"}
+  ],
+  "steps": [
+    {
+      "update": [
+        {"setView": "v1", "groups": ["shared"]},
+        {"setView": "v2", "groups": ["own"]},
+        {"editGroup": "shared", "put": {"CDS": [{"name": "a", "connectTimeout": "1s"}]}},
+        {"editGroup": "own", "put": {"CDS": [{"name": "b", "connectTimeout": "1s"}]}}
+      ]
+    },
+    {
+      "request": "CDS",
+      "envoy": "one",
+      "expect": [{"type": "CDS", "resources": [{"name": "a", "connectTimeout": "1s"}]}]
+    },
+    {"request": "CDS", "ack": "last", "envoy": "one"},
+    {
+      "request": "CDS",
+      "envoy": "two",
+      "expect": [{"type": "CDS", "resources": [{"name": "b", "connectTimeout": "1s"}]}]
+    },
+    {"request": "CDS", "ack": "last", "envoy": "two"},
+    {
+      "update": [{"editGroup": "shared", "put": {"CDS": [{"name": "c", "connectTimeout": "1s"}]}}],
+      "expect": [
+        {
+          "type": "CDS",
+          "envoy": "one",
+          "sotw": {"resources": [{"name": "a", "connectTimeout": "1s"}, {"name": "c", "connectTimeout": "1s"}]},
+          "delta": {"resources": [{"name": "c", "connectTimeout": "1s"}]}
+        }
+      ]
+    },
+    {"request": "CDS", "ack": "last", "envoy": "one"},
+    {
+      "update": [{"setView": "v2", "groups": ["own", "shared"]}],
+      "expect": [
+        {
+          "type": "CDS",
+          "envoy": "two",
+          "sotw": {
+            "resources": [
+              {"name": "b", "connectTimeout": "1s"},
+              {"name": "a", "connectTimeout": "1s"},
+              {"name": "c", "connectTimeout": "1s"}
+            ]
+          },
+          "delta": {"resources": [{"name": "a", "connectTimeout": "1s"}, {"name": "c", "connectTimeout": "1s"}]}
+        }
+      ]
+    },
+    {"request": "CDS", "ack": "last", "envoy": "two"}
+  ]
+}

@@ -1,0 +1,243 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/JonathanO/envoy-xds-spec/schema/vector.schema.json",
+  "title": "envoy-xds trace vector",
+  "description": "A scenario as data: config changes, the requests Envoys send, and the responses they should get. See docs/VECTORS.md.",
+  "type": "object",
+  "required": ["name", "description", "protocols", "serves", "envoys", "steps"],
+  "additionalProperties": false,
+  "properties": {
+    "name": {
+      "description": "The file's name, without .json.",
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+    },
+    "description": {"type": "string", "minLength": 1},
+    "comment": {"$ref": "#/$defs/comment"},
+    "protocols": {
+      "description": "Each protocol the vector runs on. A vector on both runs once per protocol.",
+      "type": "array",
+      "items": {"enum": ["sotw", "delta"]},
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "differs": {
+      "description": "Ports known to differ from this vector. Their runners skip it, giving the reason.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["port", "reason"],
+        "additionalProperties": false,
+        "properties": {
+          "port": {"enum": ["java", "go", "rust"]},
+          "reason": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "serves": {
+      "description": "The types the server has a config builder for.",
+      "type": "array",
+      "items": {"$ref": "#/$defs/type"},
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "envoys": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/envoy"},
+      "minItems": 1
+    },
+    "steps": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/step"},
+      "minItems": 1
+    }
+  },
+  "$defs": {
+    "comment": {
+      "description": "For the reader. Runners ignore it.",
+      "type": "string"
+    },
+    "type": {
+      "description": "An xDS type, by its discovery service's name.",
+      "enum": ["LDS", "RDS", "SRDS", "VHDS", "CDS", "EDS", "SDS", "RTDS"]
+    },
+    "label": {
+      "description": "A name given to a response with \"as\".",
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
+    },
+    "ref": {
+      "description": "A response: \"last\", the last of the request's type on this Envoy's stream, or a label.",
+      "$ref": "#/$defs/label"
+    },
+    "names": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true
+    },
+    "resource": {
+      "description": "An Envoy resource in the protobuf JSON mapping, of the type it's listed under. No Any fields.",
+      "type": "object"
+    },
+    "resourcesByType": {
+      "type": "object",
+      "propertyNames": {"$ref": "#/$defs/type"},
+      "additionalProperties": {"type": "array", "items": {"$ref": "#/$defs/resource"}}
+    },
+    "namesByType": {
+      "type": "object",
+      "propertyNames": {"$ref": "#/$defs/type"},
+      "additionalProperties": {"$ref": "#/$defs/names"}
+    },
+    "envoy": {
+      "type": "object",
+      "required": ["name", "view"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {"description": "Its node ID, and its client details.", "type": "string", "minLength": 1},
+        "view": {"description": "What viewOf returns for it.", "type": "string", "minLength": 1},
+        "subscribesTo": {
+          "description": "The types this Envoy gets from the server. Omitted: every type served.",
+          "type": "array",
+          "items": {"$ref": "#/$defs/type"},
+          "uniqueItems": true
+        },
+        "delayUpdatesUntilAckOf": {"$ref": "#/$defs/type"},
+        "comment": {"$ref": "#/$defs/comment"}
+      }
+    },
+    "step": {
+      "oneOf": [
+        {"$ref": "#/$defs/update"},
+        {"$ref": "#/$defs/request"},
+        {"$ref": "#/$defs/disconnect"}
+      ]
+    },
+    "expect": {
+      "description": "The responses each Envoy gets during the step, in order. Omitted or empty: none.",
+      "type": "array",
+      "items": {"$ref": "#/$defs/response"}
+    },
+    "update": {
+      "description": "One SnapshotSource update.",
+      "type": "object",
+      "required": ["update"],
+      "additionalProperties": false,
+      "properties": {
+        "update": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/op"},
+          "minItems": 1
+        },
+        "expect": {"$ref": "#/$defs/expect"},
+        "comment": {"$ref": "#/$defs/comment"}
+      }
+    },
+    "op": {
+      "oneOf": [
+        {
+          "description": "Ends a phase: what follows is the next.",
+          "const": "then"
+        },
+        {
+          "type": "object",
+          "required": ["setView", "groups"],
+          "additionalProperties": false,
+          "properties": {
+            "setView": {"type": "string", "minLength": 1},
+            "groups": {"type": "array", "items": {"type": "string", "minLength": 1}},
+            "comment": {"$ref": "#/$defs/comment"}
+          }
+        },
+        {
+          "type": "object",
+          "required": ["editGroup"],
+          "additionalProperties": false,
+          "properties": {
+            "editGroup": {"type": "string", "minLength": 1},
+            "put": {"$ref": "#/$defs/resourcesByType"},
+            "remove": {"$ref": "#/$defs/namesByType"},
+            "comment": {"$ref": "#/$defs/comment"}
+          }
+        },
+        {
+          "type": "object",
+          "required": ["setGroup", "resources"],
+          "additionalProperties": false,
+          "properties": {
+            "setGroup": {"type": "string", "minLength": 1},
+            "resources": {"$ref": "#/$defs/resourcesByType"},
+            "comment": {"$ref": "#/$defs/comment"}
+          }
+        },
+        {
+          "type": "object",
+          "required": ["removeGroup"],
+          "additionalProperties": false,
+          "properties": {
+            "removeGroup": {"type": "string", "minLength": 1},
+            "comment": {"$ref": "#/$defs/comment"}
+          }
+        }
+      ]
+    },
+    "request": {
+      "description": "One request from an Envoy.",
+      "type": "object",
+      "required": ["request"],
+      "additionalProperties": false,
+      "not": {"required": ["ack", "nack"]},
+      "properties": {
+        "request": {"$ref": "#/$defs/type"},
+        "envoy": {"description": "Which Envoy sends it. Needed only when there are several.", "type": "string"},
+        "subscribe": {"$ref": "#/$defs/names"},
+        "unsubscribe": {"$ref": "#/$defs/names"},
+        "ack": {"$ref": "#/$defs/ref"},
+        "nack": {"$ref": "#/$defs/ref"},
+        "kept": {
+          "description": "Delta only: the names Envoy kept from an earlier stream, sent as initial_resource_versions.",
+          "$ref": "#/$defs/names"
+        },
+        "expect": {"$ref": "#/$defs/expect"},
+        "comment": {"$ref": "#/$defs/comment"}
+      }
+    },
+    "disconnect": {
+      "description": "The Envoy closes its stream. Its next request opens a new one.",
+      "type": "object",
+      "required": ["disconnect"],
+      "additionalProperties": false,
+      "properties": {
+        "disconnect": {"type": "string", "minLength": 1},
+        "comment": {"$ref": "#/$defs/comment"}
+      }
+    },
+    "contents": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "resources": {"type": "array", "items": {"$ref": "#/$defs/resource"}},
+        "removed": {"$ref": "#/$defs/names"}
+      }
+    },
+    "response": {
+      "type": "object",
+      "required": ["type"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {"$ref": "#/$defs/type"},
+        "envoy": {"description": "Which Envoy gets it. Needed only when there are several.", "type": "string"},
+        "as": {"$ref": "#/$defs/label"},
+        "resources": {
+          "description": "SotW: the whole set. Delta: what's added or changed. Compared as a set, by name and content.",
+          "type": "array",
+          "items": {"$ref": "#/$defs/resource"}
+        },
+        "removed": {"description": "Delta only: removed_resources, compared as a set.", "$ref": "#/$defs/names"},
+        "sotw": {"description": "Replaces the fields it has, on SotW.", "$ref": "#/$defs/contents"},
+        "delta": {"description": "Replaces the fields it has, on delta.", "$ref": "#/$defs/contents"},
+        "comment": {"$ref": "#/$defs/comment"}
+      }
+    }
+  }
+}

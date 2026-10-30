@@ -1,0 +1,42 @@
+{
+  "name": "group-created-or-removed-with-its-view-change",
+  "description": "A group created in the same update as the view change that adds it reaches the view's Envoys, and one removed with it leaves.",
+  "protocols": ["sotw", "delta"],
+  "serves": ["CDS", "EDS", "LDS", "RDS"],
+  "envoys": [{"name": "envoy", "view": "v"}],
+  "steps": [
+    {
+      "update": [
+        {"setView": "v", "groups": ["a"]},
+        {"editGroup": "a", "put": {"CDS": [{"name": "foo", "connectTimeout": "1s"}]}}
+      ]
+    },
+    {"request": "CDS", "expect": [{"type": "CDS", "resources": [{"name": "foo", "connectTimeout": "1s"}]}]},
+    {"request": "CDS", "ack": "last"},
+    {
+      "update": [
+        {"editGroup": "new", "put": {"CDS": [{"name": "bar", "connectTimeout": "1s"}]}},
+        {"setView": "v", "groups": ["a", "new"]}
+      ],
+      "expect": [
+        {
+          "type": "CDS",
+          "sotw": {"resources": [{"name": "foo", "connectTimeout": "1s"}, {"name": "bar", "connectTimeout": "1s"}]},
+          "delta": {"resources": [{"name": "bar", "connectTimeout": "1s"}]}
+        }
+      ]
+    },
+    {"request": "CDS", "ack": "last"},
+    {
+      "update": [{"removeGroup": "new"}, {"setView": "v", "groups": ["a"]}],
+      "expect": [
+        {
+          "type": "CDS",
+          "sotw": {"resources": [{"name": "foo", "connectTimeout": "1s"}]},
+          "delta": {"removed": ["bar"]}
+        }
+      ]
+    },
+    {"request": "CDS", "ack": "last"}
+  ]
+}

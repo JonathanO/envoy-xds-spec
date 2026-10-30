@@ -1,0 +1,56 @@
+{
+  "name": "routes-wait-for-the-clusters-of-a-change-not-sent-yet",
+  "description": "A route request waits while a change under way still has clusters to send, even before it has sent any.",
+  "protocols": ["sotw", "delta"],
+  "serves": ["SDS", "CDS", "EDS", "RDS"],
+  "envoys": [{"name": "envoy", "view": "v"}],
+  "steps": [
+    {
+      "update": [
+        {"setView": "v", "groups": ["g"]},
+        {"editGroup": "g", "put": {"CDS": [{"name": "a", "connectTimeout": "1s"}], "SDS": [{"name": "s"}]}}
+      ]
+    },
+    {"request": "CDS", "expect": [{"type": "CDS", "resources": [{"name": "a", "connectTimeout": "1s"}]}]},
+    {"request": "CDS", "ack": "last"},
+    {"request": "SDS", "subscribe": ["s"], "expect": [{"type": "SDS", "resources": [{"name": "s"}]}]},
+    {"request": "SDS", "ack": "last"},
+    {
+      "update": [
+        {
+          "editGroup": "g",
+          "put": {
+            "SDS": [{"name": "s", "genericSecret": {}}],
+            "CDS": [{"name": "b", "connectTimeout": "1s"}],
+            "RDS": [{"name": "r", "virtualHosts": [{"routes": [{"route": {"cluster": "b"}}]}]}]
+          }
+        }
+      ],
+      "expect": [{"type": "SDS", "resources": [{"name": "s", "genericSecret": {}}]}]
+    },
+    {"request": "RDS", "subscribe": ["r"], "comment": "Held: routing to b before b is sent would break"},
+    {
+      "request": "SDS",
+      "ack": "last",
+      "expect": [
+        {
+          "type": "CDS",
+          "sotw": {"resources": [{"name": "a", "connectTimeout": "1s"}, {"name": "b", "connectTimeout": "1s"}]},
+          "delta": {"resources": [{"name": "b", "connectTimeout": "1s"}]}
+        }
+      ]
+    },
+    {
+      "request": "CDS",
+      "ack": "last",
+      "expect": [
+        {
+          "type": "RDS",
+          "resources": [{"name": "r", "virtualHosts": [{"routes": [{"route": {"cluster": "b"}}]}]}],
+          "comment": "The held request's answer, which the change doesn't send again"
+        }
+      ]
+    },
+    {"request": "RDS", "ack": "last"}
+  ]
+}

@@ -1,0 +1,112 @@
+{
+  "name": "change-goes-out-in-add-order-then-remove-order",
+  "description": "A change sends its adds in add order and its removals in remove order, one type at a time, each once the last is ACKed.",
+  "comment": "SotW sends each type's whole set, so a removal is a response without x; delta names x in removed_resources.",
+  "protocols": ["sotw", "delta"],
+  "serves": ["SDS", "RTDS", "CDS", "EDS", "LDS", "RDS", "SRDS", "VHDS"],
+  "envoys": [{"name": "envoy", "view": "v"}],
+  "steps": [
+    {"update": [{"setView": "v", "groups": ["g"]}]},
+    {
+      "request": "SDS",
+      "subscribe": ["x"],
+      "expect": [{"type": "SDS", "delta": {"removed": ["x"]}, "comment": "x doesn't exist yet"}]
+    },
+    {"request": "SDS", "ack": "last"},
+    {"request": "RTDS", "subscribe": ["x"], "expect": [{"type": "RTDS", "delta": {"removed": ["x"]}}]},
+    {"request": "RTDS", "ack": "last"},
+    {"request": "CDS", "subscribe": ["x"], "expect": [{"type": "CDS", "delta": {"removed": ["x"]}}]},
+    {"request": "CDS", "ack": "last"},
+    {"request": "EDS", "subscribe": ["x"], "expect": [{"type": "EDS", "delta": {"removed": ["x"]}}]},
+    {"request": "EDS", "ack": "last"},
+    {"request": "LDS", "subscribe": ["x"], "expect": [{"type": "LDS", "delta": {"removed": ["x"]}}]},
+    {"request": "LDS", "ack": "last"},
+    {"request": "RDS", "subscribe": ["x"], "expect": [{"type": "RDS", "delta": {"removed": ["x"]}}]},
+    {"request": "RDS", "ack": "last"},
+    {"request": "SRDS", "subscribe": ["x"], "expect": [{"type": "SRDS", "delta": {"removed": ["x"]}}]},
+    {"request": "SRDS", "ack": "last"},
+    {"request": "VHDS", "subscribe": ["x"], "expect": [{"type": "VHDS", "delta": {"removed": ["x"]}}]},
+    {"request": "VHDS", "ack": "last"},
+    {
+      "update": [
+        {
+          "editGroup": "g",
+          "put": {
+            "SDS": [{"name": "x"}],
+            "RTDS": [{"name": "x"}],
+            "CDS": [{"name": "x", "connectTimeout": "1s"}],
+            "EDS": [
+              {
+                "clusterName": "x",
+                "endpoints": [{"lbEndpoints": [{"endpoint": {"address": {"socketAddress": {"address": "10.0.0.1"}}}}]}]
+              }
+            ],
+            "LDS": [{"name": "x"}],
+            "RDS": [{"name": "x", "virtualHosts": [{"routes": [{"route": {"cluster": "x"}}]}]}],
+            "SRDS": [{"name": "x"}],
+            "VHDS": [{"name": "x"}]
+          }
+        }
+      ],
+      "expect": [{"type": "SDS", "resources": [{"name": "x"}]}]
+    },
+    {"request": "SDS", "ack": "last", "expect": [{"type": "RTDS", "resources": [{"name": "x"}]}]},
+    {
+      "request": "RTDS",
+      "ack": "last",
+      "expect": [{"type": "CDS", "resources": [{"name": "x", "connectTimeout": "1s"}]}]
+    },
+    {
+      "request": "CDS",
+      "ack": "last",
+      "expect": [
+        {
+          "type": "EDS",
+          "resources": [
+            {
+              "clusterName": "x",
+              "endpoints": [{"lbEndpoints": [{"endpoint": {"address": {"socketAddress": {"address": "10.0.0.1"}}}}]}]
+            }
+          ]
+        }
+      ]
+    },
+    {"request": "EDS", "ack": "last", "expect": [{"type": "LDS", "resources": [{"name": "x"}]}]},
+    {
+      "request": "LDS",
+      "ack": "last",
+      "expect": [
+        {"type": "RDS", "resources": [{"name": "x", "virtualHosts": [{"routes": [{"route": {"cluster": "x"}}]}]}]}
+      ]
+    },
+    {"request": "RDS", "ack": "last", "expect": [{"type": "SRDS", "resources": [{"name": "x"}]}]},
+    {"request": "SRDS", "ack": "last", "expect": [{"type": "VHDS", "resources": [{"name": "x"}]}]},
+    {"request": "VHDS", "ack": "last", "comment": "The remove round has nothing to send"},
+    {
+      "update": [
+        {
+          "editGroup": "g",
+          "remove": {
+            "SDS": ["x"],
+            "RTDS": ["x"],
+            "CDS": ["x"],
+            "EDS": ["x"],
+            "LDS": ["x"],
+            "RDS": ["x"],
+            "SRDS": ["x"],
+            "VHDS": ["x"]
+          }
+        }
+      ],
+      "expect": [{"type": "LDS", "delta": {"removed": ["x"]}}]
+    },
+    {"request": "LDS", "ack": "last", "expect": [{"type": "SRDS", "delta": {"removed": ["x"]}}]},
+    {"request": "SRDS", "ack": "last", "expect": [{"type": "RDS", "delta": {"removed": ["x"]}}]},
+    {"request": "RDS", "ack": "last", "expect": [{"type": "VHDS", "delta": {"removed": ["x"]}}]},
+    {"request": "VHDS", "ack": "last", "expect": [{"type": "CDS", "delta": {"removed": ["x"]}}]},
+    {"request": "CDS", "ack": "last", "expect": [{"type": "EDS", "delta": {"removed": ["x"]}}]},
+    {"request": "EDS", "ack": "last", "expect": [{"type": "RTDS", "delta": {"removed": ["x"]}}]},
+    {"request": "RTDS", "ack": "last", "expect": [{"type": "SDS", "delta": {"removed": ["x"]}}]},
+    {"request": "SDS", "ack": "last"}
+  ]
+}

@@ -1,0 +1,46 @@
+{
+  "name": "each-phase-is-acked-before-the-next",
+  "description": "A change in phases sends each phase, and waits for its ACKs, before the next.",
+  "comment": "The route stops using cluster a before a changes. Without phases, make before break would send the cluster first.",
+  "protocols": ["sotw", "delta"],
+  "serves": ["CDS", "EDS", "LDS", "RDS"],
+  "envoys": [{"name": "envoy", "view": "v"}],
+  "steps": [
+    {
+      "update": [
+        {"setView": "v", "groups": ["g"]},
+        {
+          "editGroup": "g",
+          "put": {
+            "CDS": [{"name": "a", "connectTimeout": "1s"}],
+            "RDS": [{"name": "r", "virtualHosts": [{"routes": [{"route": {"cluster": "a"}}]}]}]
+          }
+        }
+      ]
+    },
+    {"request": "CDS", "expect": [{"type": "CDS", "resources": [{"name": "a", "connectTimeout": "1s"}]}]},
+    {"request": "CDS", "ack": "last"},
+    {
+      "request": "RDS",
+      "subscribe": ["r"],
+      "expect": [
+        {"type": "RDS", "resources": [{"name": "r", "virtualHosts": [{"routes": [{"route": {"cluster": "a"}}]}]}]}
+      ]
+    },
+    {"request": "RDS", "ack": "last"},
+    {
+      "update": [
+        {"editGroup": "g", "put": {"RDS": [{"name": "r", "virtualHosts": [{}]}]}},
+        "then",
+        {"editGroup": "g", "put": {"CDS": [{"name": "a", "connectTimeout": "2s"}]}}
+      ],
+      "expect": [{"type": "RDS", "resources": [{"name": "r", "virtualHosts": [{}]}]}]
+    },
+    {
+      "request": "RDS",
+      "ack": "last",
+      "expect": [{"type": "CDS", "resources": [{"name": "a", "connectTimeout": "2s"}]}]
+    },
+    {"request": "CDS", "ack": "last"}
+  ]
+}

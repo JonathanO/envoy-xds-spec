@@ -1,0 +1,57 @@
+{
+  "name": "routes-to-a-new-cluster-wait-for-its-ack",
+  "description": "A route to a new cluster goes out only once Envoy has ACKed the cluster.",
+  "protocols": ["sotw", "delta"],
+  "serves": ["CDS", "EDS", "LDS", "RDS"],
+  "envoys": [{"name": "envoy", "view": "v"}],
+  "steps": [
+    {
+      "update": [
+        {"setView": "v", "groups": ["g"]},
+        {
+          "editGroup": "g",
+          "put": {
+            "CDS": [{"name": "a", "connectTimeout": "1s"}],
+            "RDS": [{"name": "r", "virtualHosts": [{"routes": [{"route": {"cluster": "a"}}]}]}]
+          }
+        }
+      ]
+    },
+    {"request": "CDS", "expect": [{"type": "CDS", "resources": [{"name": "a", "connectTimeout": "1s"}]}]},
+    {"request": "CDS", "ack": "last"},
+    {
+      "request": "RDS",
+      "subscribe": ["r"],
+      "expect": [
+        {"type": "RDS", "resources": [{"name": "r", "virtualHosts": [{"routes": [{"route": {"cluster": "a"}}]}]}]}
+      ]
+    },
+    {"request": "RDS", "ack": "last"},
+    {
+      "update": [
+        {
+          "editGroup": "g",
+          "put": {
+            "CDS": [{"name": "b", "connectTimeout": "1s"}],
+            "RDS": [{"name": "r", "virtualHosts": [{"routes": [{"route": {"cluster": "b"}}]}]}]
+          }
+        }
+      ],
+      "expect": [
+        {
+          "type": "CDS",
+          "sotw": {"resources": [{"name": "a", "connectTimeout": "1s"}, {"name": "b", "connectTimeout": "1s"}]},
+          "delta": {"resources": [{"name": "b", "connectTimeout": "1s"}]}
+        }
+      ]
+    },
+    {
+      "request": "CDS",
+      "ack": "last",
+      "expect": [
+        {"type": "RDS", "resources": [{"name": "r", "virtualHosts": [{"routes": [{"route": {"cluster": "b"}}]}]}]}
+      ]
+    },
+    {"request": "RDS", "ack": "last"}
+  ]
+}

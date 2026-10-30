@@ -1,0 +1,69 @@
+{
+  "name": "delta-reconnect-removes-what-envoy-kept-once-the-routes-are-acked",
+  "description": "A cluster a reconnecting delta Envoy kept, and that's gone, is removed only once the routes that may use it are ACKed.",
+  "protocols": ["delta"],
+  "serves": ["CDS", "RDS"],
+  "envoys": [{"name": "envoy", "view": "v"}],
+  "steps": [
+    {
+      "update": [
+        {"setView": "v", "groups": ["g"]},
+        {
+          "editGroup": "g",
+          "put": {
+            "CDS": [{"name": "a", "connectTimeout": "1s"}, {"name": "gone", "connectTimeout": "1s"}],
+            "RDS": [{"name": "r", "virtualHosts": [{"routes": [{"route": {"cluster": "gone"}}]}]}]
+          }
+        }
+      ]
+    },
+    {
+      "request": "CDS",
+      "expect": [
+        {"type": "CDS", "resources": [{"name": "a", "connectTimeout": "1s"}, {"name": "gone", "connectTimeout": "1s"}]}
+      ]
+    },
+    {"request": "CDS", "ack": "last"},
+    {
+      "request": "RDS",
+      "subscribe": ["r"],
+      "expect": [
+        {"type": "RDS", "resources": [{"name": "r", "virtualHosts": [{"routes": [{"route": {"cluster": "gone"}}]}]}]}
+      ]
+    },
+    {"request": "RDS", "ack": "last"},
+    {"disconnect": "envoy"},
+    {
+      "update": [
+        {
+          "editGroup": "g",
+          "put": {"RDS": [{"name": "r", "virtualHosts": [{"routes": [{"route": {"cluster": "a"}}]}]}]},
+          "remove": {"CDS": ["gone"]}
+        }
+      ],
+      "comment": "While Envoy is away"
+    },
+    {
+      "request": "CDS",
+      "kept": ["a", "gone"],
+      "expect": [
+        {
+          "type": "CDS",
+          "resources": [{"name": "a", "connectTimeout": "1s"}],
+          "comment": "gone stays: r may still route to it"
+        }
+      ]
+    },
+    {"request": "CDS", "ack": "last"},
+    {
+      "request": "RDS",
+      "subscribe": ["r"],
+      "kept": ["r"],
+      "expect": [
+        {"type": "RDS", "resources": [{"name": "r", "virtualHosts": [{"routes": [{"route": {"cluster": "a"}}]}]}]}
+      ]
+    },
+    {"request": "RDS", "ack": "last", "expect": [{"type": "CDS", "removed": ["gone"]}]},
+    {"request": "CDS", "ack": "last"}
+  ]
+}

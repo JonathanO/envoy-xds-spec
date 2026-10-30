@@ -16,7 +16,8 @@ anything refers to it, and nothing is removed while anything still refers to it.
   differences between ports that are on purpose, such as version and nonce formats.
 - **Trace vectors**: scenarios as data. Each gives changes to the config, the requests an Envoy sends, and the
   responses expected back. Nonces and versions are referred to by label, so each port's own formats don't matter.
-  Every port runs every vector in its own CI, through its snapshot module.
+  Every port runs every vector in its own CI, through its snapshot module. [docs/VECTORS.md](docs/VECTORS.md)
+  describes the format, and [vectors/](vectors) holds them.
 - **A differential fuzzer**: random scenarios run through every port, with the responses compared. A mismatch is a
   bug, or a difference to add to the spec; either way, its scenario becomes a vector.
 - **Conformance against real Envoy**: one harness, java-envoy-xds's envoy-xds-testing, drives a small conformance
