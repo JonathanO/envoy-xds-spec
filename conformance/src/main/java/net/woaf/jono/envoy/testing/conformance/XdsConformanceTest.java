@@ -142,6 +142,10 @@ public abstract class XdsConformanceTest {
         default boolean resync() {
             return false;
         }
+
+        /** The suite is done with this control plane: release what it holds, such as a process. By default, nothing. */
+        default void close() {
+        }
     }
 
     /**
@@ -520,6 +524,7 @@ public abstract class XdsConformanceTest {
         void stop() throws InterruptedException {
             envoy.stop();
             stopServer();
+            controlPlane.close();
         }
 
         /** Starting with no config, Envoy gets an answer for every type, then takes the first service. */
@@ -690,6 +695,7 @@ public abstract class XdsConformanceTest {
             assertStatus("bar", 200);
 
             stopServer();
+            controlPlane.close();
             controlPlane = newControlPlane.get();
             service = null;
             controlPlane.setConfig(services("foo", "baz"));

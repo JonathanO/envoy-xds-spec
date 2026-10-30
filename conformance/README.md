@@ -1,7 +1,8 @@
 # Envoy xDS testing
 
-Test a control plane against a real Envoy, in Docker via Testcontainers. Nothing here depends on envoy-xds-core, so
-it works for any Java control plane. There are two ways to use it:
+Test a control plane against a real Envoy, in Docker via Testcontainers. Nothing here depends on any xDS library, so
+it works for any Java control plane, and through a conformance server, for a control plane in any language. There are
+two ways to use it:
 
 - [Testing your control plane](#testing-your-control-plane): write your own scenarios ("service X loses an
   instance") and check that Envoy ends up where it should, safely.
@@ -10,9 +11,21 @@ it works for any Java control plane. There are two ways to use it:
 
 ## Setup
 
-```groovy
-testImplementation 'net.woaf.jono.envoy:envoy-xds-testing:<version>'
+It isn't published yet. Bring this repo, [envoy-xds-spec](https://github.com/JonathanO/envoy-xds-spec), into your
+build, e.g. as a git submodule at `spec/`, and include this build from your `settings.gradle.kts`:
+
+```kotlin
+includeBuild("spec/conformance")
 ```
+
+Then depend on it by its coordinates, which Gradle points at the included build:
+
+```kotlin
+testImplementation("net.woaf.jono.envoy:envoy-xds-testing")
+```
+
+For a control plane that isn't in Java, run the suite against a conformance server instead: see
+[docs/CONFORMANCE.md](../docs/CONFORMANCE.md).
 
 You also need Docker (or another [container runtime](#container-runtimes)), JUnit 5 or later, and an envoy-api with
 the usual `io.envoyproxy.envoy` packages. That is whichever one your control plane already uses, e.g.
@@ -206,7 +219,7 @@ makeAChange();
 await().until(Settled.settledAfter(conversation, mark, Settled.settled(conversation)));
 ```
 
-The envoy-xds e2e tests (`envoy-xds-e2e-tests`) use all of this, with envoy-xds's per-stream metrics as the hook.
+java-envoy-xds's e2e tests (`envoy-xds-e2e-tests`) use all of this, with its per-stream metrics as the hook.
 
 ## Conformance suite for xDS libraries
 
@@ -252,8 +265,8 @@ The suite owns the matrix, so every library is tested the same way. It runs ever
 That's 104 tests and takes several minutes, so run it in CI or before a release rather than on every build. Each test is
 named by its path, e.g. `sotw/v1.36/rate-limited/startsEmpty`.
 
-Implement `idleHook()` in your `ControlPlane` if your library can tell when a stream is idle, and `resync()` if it can
-make Envoy reconnect. The scenarios:
+Implement `idleHook()` in your `ControlPlane` if your library can tell when a stream is idle, `resync()` if it can
+make Envoy reconnect, and `close()` if it holds anything to release. The scenarios:
 
 - `startsEmpty`: no config at first. Envoy gets an answer for every type it asks for, including a route config that
   doesn't exist yet, then takes the first service.
@@ -304,5 +317,13 @@ junit.jupiter.execution.parallel.config.fixed.parallelism=4
 ```
 
 `newControlPlane()` is then called concurrently, so the control planes it returns mustn't share state.
-`EnvoyXdsConformanceTest` in `envoy-xds-e2e-tests` runs the suite against envoy-xds, on every Envoy release upstream
-supports, this way.
+java-envoy-xds's `EnvoyXdsConformanceTest` runs the suite against it, on every Envoy release upstream supports, this
+way.
+
+### Against a conformance server
+
+A library in another language provides a conformance server, a small binary serving ADS and a control API, and runs
+the suite against it with `./gradlew conformance -Pserver=/path/to/server`. `ExternalServerConformanceTest` is the
+`XdsConformanceTest` that does it: its control plane starts the server, proxies Envoy's ADS streams to it, recording
+them, and makes changes over the control API. [docs/CONFORMANCE.md](../docs/CONFORMANCE.md) describes the server and
+the API.
