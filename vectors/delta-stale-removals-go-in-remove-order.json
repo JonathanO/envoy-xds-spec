@@ -1,0 +1,44 @@
+{
+  "name": "delta-stale-removals-go-in-remove-order",
+  "description": "What a reconnecting delta Envoy kept that's gone is removed in remove order, one type at a time, each once the last is ACKed.",
+  "protocols": ["delta"],
+  "serves": ["CDS", "EDS", "LDS", "RDS"],
+  "envoys": [{"name": "envoy", "view": "v", "subscribesTo": ["CDS", "EDS", "RDS"]}],
+  "steps": [
+    {
+      "update": [
+        {"setView": "v", "groups": ["g"]},
+        {
+          "editGroup": "g",
+          "put": {"RDS": [{"name": "current", "virtualHosts": [{"routes": [{"route": {"cluster": "x"}}]}]}]}
+        }
+      ]
+    },
+    {
+      "request": "CDS",
+      "subscribe": ["stale"],
+      "kept": ["stale"],
+      "expect": [{"type": "CDS", "comment": "stale waits for the routes"}]
+    },
+    {"request": "CDS", "ack": "last"},
+    {"request": "EDS", "subscribe": ["stale"], "kept": ["stale"], "expect": [{"type": "EDS"}]},
+    {"request": "EDS", "ack": "last"},
+    {
+      "request": "RDS",
+      "subscribe": ["current", "stale"],
+      "kept": ["stale"],
+      "expect": [
+        {
+          "type": "RDS",
+          "resources": [{"name": "current", "virtualHosts": [{"routes": [{"route": {"cluster": "x"}}]}]}],
+          "removed": ["stale"],
+          "comment": "Nothing before routes in remove order is sent to this Envoy"
+        }
+      ]
+    },
+    {"request": "RDS", "ack": "last", "expect": [{"type": "CDS", "removed": ["stale"]}]},
+    {"request": "CDS", "comment": "Not an ACK, so the removal still awaits one"},
+    {"request": "CDS", "ack": "last", "expect": [{"type": "EDS", "removed": ["stale"]}]},
+    {"request": "EDS", "ack": "last"}
+  ]
+}

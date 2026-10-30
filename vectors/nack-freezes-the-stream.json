@@ -1,0 +1,80 @@
+{
+  "name": "nack-freezes-the-stream",
+  "description": "After a NACK, nothing more of the change goes, nor any later change, but subscriptions are still answered.",
+  "protocols": ["sotw", "delta"],
+  "serves": ["CDS", "EDS", "LDS", "RDS"],
+  "envoys": [{"name": "envoy", "view": "v"}],
+  "steps": [
+    {
+      "update": [
+        {"setView": "v", "groups": ["g"]},
+        {
+          "editGroup": "g",
+          "put": {
+            "CDS": [{"name": "a", "connectTimeout": "1s"}],
+            "EDS": [
+              {
+                "clusterName": "a",
+                "endpoints": [{"lbEndpoints": [{"endpoint": {"address": {"socketAddress": {"address": "10.0.0.1"}}}}]}]
+              }
+            ],
+            "RDS": [{"name": "r", "virtualHosts": [{"routes": [{"route": {"cluster": "a"}}]}]}]
+          }
+        }
+      ]
+    },
+    {"request": "CDS", "expect": [{"type": "CDS", "resources": [{"name": "a", "connectTimeout": "1s"}]}]},
+    {"request": "CDS", "ack": "last"},
+    {
+      "request": "RDS",
+      "subscribe": ["r"],
+      "expect": [
+        {"type": "RDS", "resources": [{"name": "r", "virtualHosts": [{"routes": [{"route": {"cluster": "a"}}]}]}]}
+      ]
+    },
+    {"request": "RDS", "ack": "last"},
+    {
+      "update": [
+        {
+          "editGroup": "g",
+          "put": {
+            "CDS": [{"name": "b", "connectTimeout": "1s"}],
+            "RDS": [{"name": "r", "virtualHosts": [{"routes": [{"route": {"cluster": "b"}}]}]}]
+          }
+        }
+      ],
+      "expect": [
+        {
+          "type": "CDS",
+          "sotw": {"resources": [{"name": "a", "connectTimeout": "1s"}, {"name": "b", "connectTimeout": "1s"}]},
+          "delta": {"resources": [{"name": "b", "connectTimeout": "1s"}]}
+        }
+      ]
+    },
+    {
+      "update": [{"editGroup": "g", "put": {"CDS": [{"name": "c", "connectTimeout": "1s"}]}}],
+      "comment": "Waits behind the change under way"
+    },
+    {"request": "CDS", "nack": "last", "comment": "Neither the change's route nor the waiting change goes"},
+    {
+      "update": [{"editGroup": "g", "put": {"CDS": [{"name": "d", "connectTimeout": "1s"}]}}],
+      "comment": "The stream is frozen"
+    },
+    {
+      "request": "EDS",
+      "subscribe": ["a"],
+      "expect": [
+        {
+          "type": "EDS",
+          "resources": [
+            {
+              "clusterName": "a",
+              "endpoints": [{"lbEndpoints": [{"endpoint": {"address": {"socketAddress": {"address": "10.0.0.1"}}}}]}]
+            }
+          ]
+        }
+      ]
+    },
+    {"request": "EDS", "ack": "last"}
+  ]
+}

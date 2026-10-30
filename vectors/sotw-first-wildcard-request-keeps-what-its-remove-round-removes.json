@@ -1,0 +1,54 @@
+{
+  "name": "sotw-first-wildcard-request-keeps-what-its-remove-round-removes",
+  "description": "A SotW Envoy's first request for a wildcard type, mid-change, gets what the change will remove until that type's remove round.",
+  "comment": "A reconnected Envoy that kept cluster a asks for clusters only now. Listener l1 still routes to a: its removal hasn't gone.",
+  "protocols": ["sotw"],
+  "serves": ["CDS", "EDS", "LDS", "RDS"],
+  "envoys": [{"name": "envoy", "view": "v"}],
+  "steps": [
+    {
+      "update": [
+        {"setView": "v", "groups": ["g"]},
+        {
+          "editGroup": "g",
+          "put": {
+            "CDS": [{"name": "a", "connectTimeout": "1s"}],
+            "LDS": [{"name": "l1"}],
+            "RDS": [{"name": "r", "virtualHosts": [{"routes": [{"route": {"cluster": "a"}}]}]}]
+          }
+        }
+      ]
+    },
+    {"request": "LDS", "expect": [{"type": "LDS", "resources": [{"name": "l1"}]}]},
+    {"request": "LDS", "ack": "last"},
+    {
+      "request": "RDS",
+      "subscribe": ["r"],
+      "expect": [
+        {"type": "RDS", "resources": [{"name": "r", "virtualHosts": [{"routes": [{"route": {"cluster": "a"}}]}]}]}
+      ]
+    },
+    {"request": "RDS", "ack": "last"},
+    {
+      "update": [
+        {"editGroup": "g", "put": {"LDS": [{"name": "l2"}]}, "remove": {"LDS": ["l1"], "RDS": ["r"], "CDS": ["a"]}}
+      ],
+      "expect": [{"type": "LDS", "as": "lds-add", "resources": [{"name": "l1"}, {"name": "l2"}]}]
+    },
+    {
+      "request": "CDS",
+      "expect": [
+        {
+          "type": "CDS",
+          "resources": [{"name": "a", "connectTimeout": "1s"}],
+          "comment": "An answer without a would remove it"
+        }
+      ]
+    },
+    {"request": "CDS", "ack": "last"},
+    {"request": "LDS", "ack": "lds-add", "expect": [{"type": "LDS", "resources": [{"name": "l2"}]}]},
+    {"request": "LDS", "ack": "last", "expect": [{"type": "RDS", "resources": []}]},
+    {"request": "RDS", "ack": "last", "expect": [{"type": "CDS", "resources": []}]},
+    {"request": "CDS", "ack": "last"}
+  ]
+}

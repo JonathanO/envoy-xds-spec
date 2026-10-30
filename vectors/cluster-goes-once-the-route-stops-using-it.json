@@ -1,0 +1,56 @@
+{
+  "name": "cluster-goes-once-the-route-stops-using-it",
+  "description": "A removed cluster goes only once Envoy has ACKed the route that stopped using it.",
+  "protocols": ["sotw", "delta"],
+  "serves": ["CDS", "EDS", "LDS", "RDS"],
+  "envoys": [{"name": "envoy", "view": "v"}],
+  "steps": [
+    {
+      "update": [
+        {"setView": "v", "groups": ["g"]},
+        {
+          "editGroup": "g",
+          "put": {
+            "CDS": [{"name": "a", "connectTimeout": "1s"}, {"name": "b", "connectTimeout": "1s"}],
+            "RDS": [{"name": "r", "virtualHosts": [{"routes": [{"route": {"cluster": "a"}}]}]}]
+          }
+        }
+      ]
+    },
+    {
+      "request": "CDS",
+      "expect": [
+        {"type": "CDS", "resources": [{"name": "a", "connectTimeout": "1s"}, {"name": "b", "connectTimeout": "1s"}]}
+      ]
+    },
+    {"request": "CDS", "ack": "last"},
+    {
+      "request": "RDS",
+      "subscribe": ["r"],
+      "expect": [
+        {"type": "RDS", "resources": [{"name": "r", "virtualHosts": [{"routes": [{"route": {"cluster": "a"}}]}]}]}
+      ]
+    },
+    {"request": "RDS", "ack": "last"},
+    {
+      "update": [
+        {
+          "editGroup": "g",
+          "put": {"RDS": [{"name": "r", "virtualHosts": [{"routes": [{"route": {"cluster": "b"}}]}]}]},
+          "remove": {"CDS": ["a"]}
+        }
+      ],
+      "expect": [
+        {"type": "RDS", "resources": [{"name": "r", "virtualHosts": [{"routes": [{"route": {"cluster": "b"}}]}]}]}
+      ]
+    },
+    {
+      "request": "RDS",
+      "ack": "last",
+      "expect": [
+        {"type": "CDS", "sotw": {"resources": [{"name": "b", "connectTimeout": "1s"}]}, "delta": {"removed": ["a"]}}
+      ]
+    },
+    {"request": "CDS", "ack": "last"}
+  ]
+}

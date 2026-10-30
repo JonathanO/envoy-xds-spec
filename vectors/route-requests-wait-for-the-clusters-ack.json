@@ -1,0 +1,54 @@
+{
+  "name": "route-requests-wait-for-the-clusters-ack",
+  "description": "A route request waits while clusters or endpoints await their ACK, as when Envoy asks for everything at once.",
+  "protocols": ["sotw", "delta"],
+  "serves": ["CDS", "EDS", "LDS", "RDS"],
+  "envoys": [{"name": "envoy", "view": "v"}],
+  "steps": [
+    {
+      "update": [
+        {"setView": "v", "groups": ["g"]},
+        {
+          "editGroup": "g",
+          "put": {
+            "CDS": [{"name": "a", "connectTimeout": "1s"}],
+            "EDS": [
+              {
+                "clusterName": "a",
+                "endpoints": [{"lbEndpoints": [{"endpoint": {"address": {"socketAddress": {"address": "10.0.0.1"}}}}]}]
+              }
+            ],
+            "RDS": [{"name": "r", "virtualHosts": [{"routes": [{"route": {"cluster": "a"}}]}]}]
+          }
+        }
+      ]
+    },
+    {"request": "CDS", "expect": [{"type": "CDS", "resources": [{"name": "a", "connectTimeout": "1s"}]}]},
+    {"request": "RDS", "subscribe": ["r"], "comment": "Held: CDS awaits its ACK"},
+    {
+      "request": "EDS",
+      "subscribe": ["a"],
+      "expect": [
+        {
+          "type": "EDS",
+          "resources": [
+            {
+              "clusterName": "a",
+              "endpoints": [{"lbEndpoints": [{"endpoint": {"address": {"socketAddress": {"address": "10.0.0.1"}}}}]}]
+            }
+          ]
+        }
+      ],
+      "comment": "Endpoint requests are never held"
+    },
+    {"request": "CDS", "ack": "last", "comment": "Still held: EDS awaits its ACK"},
+    {
+      "request": "EDS",
+      "ack": "last",
+      "expect": [
+        {"type": "RDS", "resources": [{"name": "r", "virtualHosts": [{"routes": [{"route": {"cluster": "a"}}]}]}]}
+      ]
+    },
+    {"request": "RDS", "ack": "last"}
+  ]
+}

@@ -1,0 +1,24 @@
+name: "Vectors"
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  validate:
+    name: "Validate vectors"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: "Checkout repo"
+        uses: actions/checkout@v7
+      - name: "Check each vector against the schema"
+        run: pipx run check-jsonschema==0.39.0 --schemafile schema/vector.schema.json vectors/*.json
+      - name: "Check each vector is named after its file"
+        run: |
+          for f in vectors/*.json; do
+            jq -e --arg name "$(basename "$f" .json)" '.name == $name' "$f" > /dev/null || { echo "$f: its name isn't its file's"; exit 1; }
+          done

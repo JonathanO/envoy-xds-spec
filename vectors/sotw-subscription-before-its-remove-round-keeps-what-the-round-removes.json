@@ -1,0 +1,98 @@
+{
+  "name": "sotw-subscription-before-its-remove-round-keeps-what-the-round-removes",
+  "description": "A SotW subscription mid-change, before its type's remove round, keeps what that round removes, which then goes in turn.",
+  "protocols": ["sotw"],
+  "serves": ["CDS", "EDS", "LDS", "RDS"],
+  "envoys": [{"name": "envoy", "view": "v"}],
+  "steps": [
+    {
+      "update": [
+        {"setView": "v", "groups": ["g"]},
+        {
+          "editGroup": "g",
+          "put": {
+            "CDS": [{"name": "a", "connectTimeout": "1s"}],
+            "EDS": [
+              {
+                "clusterName": "a",
+                "endpoints": [{"lbEndpoints": [{"endpoint": {"address": {"socketAddress": {"address": "10.0.0.1"}}}}]}]
+              },
+              {
+                "clusterName": "c",
+                "endpoints": [{"lbEndpoints": [{"endpoint": {"address": {"socketAddress": {"address": "10.0.0.2"}}}}]}]
+              }
+            ],
+            "RDS": [{"name": "r", "virtualHosts": [{"routes": [{"route": {"cluster": "a"}}]}]}]
+          }
+        }
+      ]
+    },
+    {"request": "CDS", "expect": [{"type": "CDS", "resources": [{"name": "a", "connectTimeout": "1s"}]}]},
+    {"request": "CDS", "ack": "last"},
+    {
+      "request": "RDS",
+      "subscribe": ["r"],
+      "expect": [
+        {"type": "RDS", "resources": [{"name": "r", "virtualHosts": [{"routes": [{"route": {"cluster": "a"}}]}]}]}
+      ]
+    },
+    {"request": "RDS", "ack": "last"},
+    {
+      "request": "EDS",
+      "subscribe": ["a"],
+      "expect": [
+        {
+          "type": "EDS",
+          "resources": [
+            {
+              "clusterName": "a",
+              "endpoints": [{"lbEndpoints": [{"endpoint": {"address": {"socketAddress": {"address": "10.0.0.1"}}}}]}]
+            }
+          ]
+        }
+      ]
+    },
+    {"request": "EDS", "ack": "last"},
+    {
+      "update": [{"editGroup": "g", "remove": {"RDS": ["r"], "EDS": ["a"]}}],
+      "expect": [{"type": "RDS", "as": "rds-remove", "resources": []}]
+    },
+    {
+      "request": "EDS",
+      "subscribe": ["c"],
+      "expect": [
+        {
+          "type": "EDS",
+          "resources": [
+            {
+              "clusterName": "a",
+              "endpoints": [{"lbEndpoints": [{"endpoint": {"address": {"socketAddress": {"address": "10.0.0.1"}}}}]}]
+            },
+            {
+              "clusterName": "c",
+              "endpoints": [{"lbEndpoints": [{"endpoint": {"address": {"socketAddress": {"address": "10.0.0.2"}}}}]}]
+            }
+          ],
+          "comment": "a's endpoints stay while the route using them may be there"
+        }
+      ]
+    },
+    {"request": "EDS", "ack": "last"},
+    {
+      "request": "RDS",
+      "ack": "rds-remove",
+      "expect": [
+        {
+          "type": "EDS",
+          "resources": [
+            {
+              "clusterName": "c",
+              "endpoints": [{"lbEndpoints": [{"endpoint": {"address": {"socketAddress": {"address": "10.0.0.2"}}}}]}]
+            }
+          ]
+        }
+      ]
+    },
+    {"request": "EDS", "ack": "last"}
+  ]
+}

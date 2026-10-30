@@ -1,0 +1,57 @@
+{
+  "name": "change-waits-for-held-requests",
+  "description": "A change waits until held requests are answered, so it skips no type Envoy has.",
+  "comment": "A reconnecting Envoy kept listener l, which routes to cluster a, and asks for everything at once. Were the change to start before l's request is answered, it would skip LDS and remove a under l.",
+  "protocols": ["delta"],
+  "serves": ["CDS", "EDS", "LDS", "RDS"],
+  "envoys": [{"name": "envoy", "view": "v", "subscribesTo": ["CDS", "EDS", "LDS"]}],
+  "steps": [
+    {
+      "update": [
+        {"setView": "v", "groups": ["g"]},
+        {
+          "editGroup": "g",
+          "put": {
+            "CDS": [{"name": "a", "connectTimeout": "1s"}],
+            "EDS": [
+              {
+                "clusterName": "a",
+                "endpoints": [{"lbEndpoints": [{"endpoint": {"address": {"socketAddress": {"address": "10.0.0.1"}}}}]}]
+              }
+            ],
+            "LDS": [{"name": "l"}]
+          }
+        }
+      ]
+    },
+    {
+      "request": "CDS",
+      "kept": ["a"],
+      "expect": [{"type": "CDS", "resources": [{"name": "a", "connectTimeout": "1s"}]}]
+    },
+    {
+      "request": "EDS",
+      "subscribe": ["a"],
+      "kept": ["a"],
+      "expect": [
+        {
+          "type": "EDS",
+          "resources": [
+            {
+              "clusterName": "a",
+              "endpoints": [{"lbEndpoints": [{"endpoint": {"address": {"socketAddress": {"address": "10.0.0.1"}}}}]}]
+            }
+          ]
+        }
+      ]
+    },
+    {"request": "LDS", "kept": ["l"], "comment": "Held: the clusters await their ACK"},
+    {"update": [{"editGroup": "g", "remove": {"LDS": ["l"], "CDS": ["a"], "EDS": ["a"]}}]},
+    {"request": "CDS", "ack": "last"},
+    {"request": "EDS", "ack": "last", "expect": [{"type": "LDS", "resources": [{"name": "l"}]}]},
+    {"request": "LDS", "ack": "last", "expect": [{"type": "LDS", "removed": ["l"]}]},
+    {"request": "LDS", "ack": "last", "expect": [{"type": "CDS", "removed": ["a"]}]},
+    {"request": "CDS", "ack": "last", "expect": [{"type": "EDS", "removed": ["a"]}]},
+    {"request": "EDS", "ack": "last"}
+  ]
+}
