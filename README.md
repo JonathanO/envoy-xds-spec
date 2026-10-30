@@ -20,8 +20,22 @@ anything refers to it, and nothing is removed while anything still refers to it.
   describes the format, and [vectors/](vectors) holds them.
 - **A differential fuzzer**: random scenarios run through every port, with the responses compared. A mismatch is a
   bug, or a difference to add to the spec; either way, its scenario becomes a vector.
-- **Conformance against real Envoy**: one harness, java-envoy-xds's envoy-xds-testing, drives a small conformance
-  server that each port provides.
+- **Conformance against real Envoy**: one harness, in [conformance/](conformance), runs real Envoys against every
+  port. See [below](#conformance-against-real-envoy).
+
+## Conformance against real Envoy
+
+[conformance/](conformance) is a Gradle build: a harness that runs real Envoys in Docker, records the xDS conversation,
+and checks make before break, Envoy's stats and its log, and a conformance suite of scenarios built on it. Every port
+runs the suite in its own CI, on every Envoy release upstream supports:
+
+- java-envoy-xds includes the build (`includeBuild("spec/conformance")`), and runs the suite in process;
+- every other port provides a conformance server, a small binary serving ADS and a control API, and runs
+  `./gradlew conformance -Pserver=/path/to/server` in `conformance/`.
+
+[docs/CONFORMANCE.md](docs/CONFORMANCE.md) describes the server and its control API, and
+[conformance/README.md](conformance/README.md) the harness, its checks and the scenarios. This repo's CI builds the
+harness and runs its unit tests; it runs no Envoys.
 
 ## Changing behaviour
 

@@ -11,3 +11,6 @@ checks ports against each other.
   nonces and versions by label.
 - Shared tooling (the reference runner, the fuzzer, the conformance harness) lives with the reference implementation,
   in Java. Each port provides a vector runner and a conformance server.
+- The conformance harness is a Gradle build in `conformance/`. Run `./gradlew check javadoc` there before pushing:
+  `check` doesn't run javadoc, and CI fails on its warnings. A change to the control API changes every port's
+  conformance server: say so in docs/CONFORMANCE.md, and in the PR.
