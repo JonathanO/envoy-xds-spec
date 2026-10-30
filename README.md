@@ -11,9 +11,9 @@ anything refers to it, and nothing is removed while anything still refers to it.
 
 ## What's here
 
-- **The spec**: the rules every port follows. Make before break, which requests wait and for what, how a request
-  that arrives mid-change is answered, what a NACK does, what a reconnecting Envoy kept and when it goes. Also the
-  differences between ports that are on purpose, such as version and nonce formats.
+- **[The spec](SPEC.md)**: the rules every port follows. Make before break, which requests wait and for what, how a
+  request that arrives mid-change is answered, what a NACK does, what a reconnecting Envoy kept and when it goes. Also
+  the differences between ports that are on purpose, such as version and nonce formats.
 - **Trace vectors**: scenarios as data. Each gives changes to the config, the requests an Envoy sends, and the
   responses expected back. Nonces and versions are referred to by label, so each port's own formats don't matter.
   Every port runs every vector in its own CI, through its snapshot module. [docs/VECTORS.md](docs/VECTORS.md)
