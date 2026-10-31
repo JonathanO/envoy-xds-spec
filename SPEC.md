@@ -2,7 +2,8 @@
 
 This is how every envoy-xds port behaves, as an Envoy sees it: which responses it gets, in what order, and when. It
 says nothing about how a port is built. The [trace vectors](vectors) are its executable examples, and
-[docs/VECTORS.md](docs/VECTORS.md) describes their format.
+[docs/VECTORS.md](docs/VECTORS.md) describes their format. Rules that rest on what Envoy does also link the
+[conformance](docs/CONFORMANCE.md) scenarios that check them against a real Envoy.
 
 Each rule has a number, so a vector, a pull request or a test can cite it, as "SPEC §4.2". When a port and this spec
 disagree, the port is wrong, unless [§8](#8-differences) lists the difference.
@@ -87,6 +88,9 @@ Example: [change-goes-out-in-add-order-then-remove-order](vectors/change-goes-ou
 
 Example: [routes-to-a-new-cluster-wait-for-its-ack](vectors/routes-to-a-new-cluster-wait-for-its-ack.json).
 
+Seen with Envoy, in the [conformance suite](conformance/README.md#conformance-suite-for-xds-libraries):
+`addsAndRemovesServices`, `movesRouteToNewCluster`, `addsAndRemovesListener`, `scopedRoutes`.
+
 ### 2.2 What goes in each round
 
 - The add round sends what the change adds or changes: each resource Envoy subscribes to that is in the view after
@@ -97,7 +101,13 @@ Example: [routes-to-a-new-cluster-wait-for-its-ack](vectors/routes-to-a-new-clus
 On delta, a round's response carries just that: the resources added or changed, or the names removed. On SotW, a
 round's response is the type's whole set, with the round applied.
 
+Every SotW response, a round's or an answer's, lists its resources sorted by name, so the same set always makes the
+same response. A delta response may list its resources in any order.
+
 Example: [cluster-goes-once-the-route-stops-using-it](vectors/cluster-goes-once-the-route-stops-using-it.json).
+
+Seen with Envoy, in the [conformance suite](conformance/README.md#conformance-suite-for-xds-libraries):
+`changesEndpoints`.
 
 ### 2.3 Phases
 
@@ -108,6 +118,8 @@ clusters first, and the route briefly uses a subset that's gone.
 So an update can be split into phases. An Envoy is sent the whole of one phase, both rounds, and ACKs it, before it is
 sent anything of the next. Each phase is make before break within itself. Only an Envoy whose view changes in a later
 phase waits for an earlier one. An Envoy whose stream starts during an update gets the end result.
+
+An update has no empty phases: starting a new phase while the current one has no edits starts nothing.
 
 Example: [each-phase-is-acked-before-the-next](vectors/each-phase-is-acked-before-the-next.json).
 
@@ -163,6 +175,12 @@ order they were published: the merged change goes from the oldest one's before t
 Updates never merge across phases. An update that ends a phase takes no later update into it; the next phase waits
 behind it, and is sent only once it is complete.
 
+A port sends whatever an update makes, even if it is the same as what the stream has. Leaving out updates that change
+nothing is the config source's job, which the snapshot model does: an update that changes no Envoy's view reaches no
+Envoy (§2.4).
+
+Seen with Envoy, in the [conformance suite](conformance/README.md#conformance-suite-for-xds-libraries): `churns`.
+
 ## 4. Requests
 
 ### 4.1 Answers come from current state
@@ -189,7 +207,8 @@ the type's remove round, or with no change under way, answers come from the stat
 An answer during a change never makes the change send the same thing twice:
 
 - On SotW, if the type's add round is still to come, the answer applies it, and the add round then sends nothing more.
-- On delta, the type's add round leaves out the resources an answer has already sent during this change.
+- On delta, the type's add round leaves out a resource an answer has already sent during this change, if the answer
+  sent it as the add round would. Ports compare the resources' content, not just their names.
 
 The remove round always goes in its turn, on both protocols.
 
@@ -222,6 +241,9 @@ Example: [route-requests-wait-for-the-clusters-ack](vectors/route-requests-wait-
 
 Example: [routes-wait-for-the-clusters-of-a-change-not-sent-yet](vectors/routes-wait-for-the-clusters-of-a-change-not-sent-yet.json).
 
+Seen with Envoy, in the [conformance suite](conformance/README.md#conformance-suite-for-xds-libraries): `reconnects`,
+`controlPlaneRestarts`, `changesWhileDisconnected`.
+
 ### 4.4 A request never overtakes a held one of its type
 
 If a request of a type is held, every later request of that type is held behind it, whatever else holds, even an ACK.
@@ -242,6 +264,9 @@ names are in `removed_resources`; on SotW, they are left out of the set.
 A delta request that subscribes to names Envoy is already subscribed to is answered again, with those names.
 
 Example: [change-goes-out-in-add-order-then-remove-order](vectors/change-goes-out-in-add-order-then-remove-order.json).
+
+Seen with Envoy, in the [conformance suite](conformance/README.md#conformance-suite-for-xds-libraries): `startsEmpty`,
+`onDemandClusters`, `onDemandScopes`.
 
 ### 4.7 Unsubscribing gets no answer
 
@@ -285,13 +310,24 @@ On delta, each request subscribes to and unsubscribes from names:
 
 Example: [sotw-first-wildcard-request-keeps-what-its-remove-round-removes](vectors/sotw-first-wildcard-request-keeps-what-its-remove-round-removes.json).
 
+Seen with Envoy, in the [conformance suite](conformance/README.md#conformance-suite-for-xds-libraries):
+`onDemandVirtualHosts`.
+
 ### 4.10 Types not served, unknown types and bad requests
 
 - A request for a type that isn't served is answered like any other, with nothing.
 - A request for a type URL that isn't one of the eight types is logged and left unanswered. Ending the stream would
   take every other type down with it, and Envoy would only reconnect and ask again.
 - A delta request that subscribes to and unsubscribes from the same name, other than `*` on a wildcard type, fails the
-  stream with an error. The xDS spec doesn't say which should win, and either could be wrong.
+  stream with `INVALID_ARGUMENT`. The xDS spec doesn't say which should win, and either could be wrong.
+
+A stream that fails ends with a gRPC status that says whose fault it was:
+
+- `INVALID_ARGUMENT` for a bad request, as above.
+- `INTERNAL`, with the message `xds: internal error`, for the port's own failures, such as a user's config builder
+  throwing, even if what it throws is itself a gRPC status. The error is logged, not sent to Envoy.
+- When the user's lookup of an Envoy's options (§3.2, §6.2) fails with a gRPC status, that status, as it is. Any
+  other failure there is `INTERNAL`, as above.
 
 ## 5. NACKs and freezing
 
@@ -304,12 +340,18 @@ response. A frozen stream gets no more changes:
 - waiting updates, and every later update, are dropped;
 - stale removals still waiting ([§6.1](#61-stale-removals)) are never sent.
 
+The port stops taking updates for a frozen stream at once, not when the stream ends: it unsubscribes the stream from
+the config source.
+
 Envoy keeps serving its last good config, which goes stale until someone acts. A rejected change won't fix itself:
 resending it, or a later change that includes it, would be rejected again. Envoy may have taken part of it, so a port
 no longer knows what Envoy has, and sending changes from a guess could make things worse. Rolling back would undo
 whatever part Envoy took. Closing the stream would have Envoy reconnect straight away, get the same config, and loop.
 
 Example: [nack-freezes-the-stream](vectors/nack-freezes-the-stream.json).
+
+Seen with Envoy, in the [conformance suite](conformance/README.md#conformance-suite-for-xds-libraries):
+`containsRejectedConfig`.
 
 ### 5.2 A frozen stream still answers subscriptions
 
@@ -329,6 +371,9 @@ reconnects, and its new stream syncs from scratch with the config as it is now. 
 are ignored. Each port also offers a helper that does this a while after a NACK, waiting longer each time the same
 Envoy NACKs again.
 
+Seen with Envoy, in the [conformance suite](conformance/README.md#conformance-suite-for-xds-libraries):
+`containsRejectedConfig`.
+
 ## 6. Reconnects
 
 Envoy keeps its config while it is disconnected. When it reconnects, it subscribes to everything at once. On delta it
@@ -346,8 +391,12 @@ leaves out (§6.2), are skipped. Otherwise the stale names wait.
 
 Waiting stale removals go when a port looks for a change to start (§3.1): only when nothing awaits an ACK and no
 request is held. They go one type at a time, in remove order. A type's go only once they may, by the rule above, and
-never before an earlier type's in remove order. Each response waits for its ACK. When they go, a type removes only names that are still subscribed to and still
-missing. A change waits for the ACK of a stale removal that has gone, but not for stale removals that may not go yet.
+never before an earlier type's in remove order. Each response waits for its ACK. When they go, a type removes only
+names that are still subscribed to and still missing. A change waits for the ACK of a stale removal that has gone, but
+not for stale removals that may not go yet.
+
+A waiting stale name that is sent since, as an answer or by a change, is no longer stale: Envoy has been told about it.
+It is never removed as stale, even if a later change removes it, since that change sends the removal itself.
 
 A newly subscribed name that Envoy didn't keep, and that doesn't exist, is answered as removed at once (§4.6): Envoy
 has nothing to remove.
@@ -355,6 +404,11 @@ has nothing to remove.
 Example: [delta-reconnect-removes-what-envoy-kept-once-the-routes-are-acked](vectors/delta-reconnect-removes-what-envoy-kept-once-the-routes-are-acked.json).
 
 Example: [delta-stale-removals-go-in-remove-order](vectors/delta-stale-removals-go-in-remove-order.json).
+
+Example: [delta-stale-name-answered-since-is-removed-once](vectors/delta-stale-name-answered-since-is-removed-once.json).
+
+Seen with Envoy, in the [conformance suite](conformance/README.md#conformance-suite-for-xds-libraries): `reconnects`,
+`changesWhileDisconnected`, `controlPlaneRestarts`.
 
 ### 6.2 `subscribesTo`
 
@@ -373,10 +427,11 @@ Example: [change-waits-for-held-requests](vectors/change-waits-for-held-requests
 ### 6.3 The 30 second give-up
 
 Stale removals, and `delayUpdatesUntilAckOf`, wait for Envoy to ask for and ACK a type it may never ask for. So they
-wait at most 30 seconds, counted from the stream's first request for one of the eight types.
+give up after 30 seconds, counted from the stream's first request for one of the eight types.
 
-There is no timer. The wait is checked only when something happens on the stream: a request or an update. Once stale
-removals have waited too long, the port logs a warning, and from then on no stale removal on that stream waits.
+There is no timer, so they wait at least 30 seconds, then until the next thing that happens on the stream: a request
+or an update. The wait is checked only then. Once stale removals have waited too long, the port logs a warning, and
+from then on no stale removal on that stream waits.
 Once `delayUpdatesUntilAckOf` has waited too long, the port logs a warning, and changes go.
 
 ### 6.4 SotW
@@ -384,6 +439,9 @@ Once `delayUpdatesUntilAckOf` has waited too long, the port logs a warning, and 
 SotW has no `initial_resource_versions`, so a port can't know what a reconnecting Envoy kept. Each SotW answer is the
 whole set, and replaces what Envoy has. So a cluster Envoy kept that the config no longer has goes with the first CDS
 answer, even while a route Envoy kept still uses it. Prefer delta.
+
+Seen with Envoy, in the [conformance suite](conformance/README.md#conformance-suite-for-xds-libraries): `reconnects`,
+`controlPlaneRestarts`.
 
 ## 7. Versions and nonces
 
@@ -413,17 +471,12 @@ These are the deliberate differences between ports. Each is checked against ever
 |---|---|---|
 | go | Each type's version counts up from 1, on both protocols, and the nonce is the version. | xDS needs only that each nonce is new for its type (§7.1); a count does that, and is the same on every run. |
 | java | SotW versions count up from 2, delta versions from 1, each type on its own; nonces are random UUIDs. | Nothing depends on the format (§7.2), so it is left as it was. |
-| go | A SotW response lists its resources sorted by name. | The port keeps them in a map, whose order is random; sorting makes each response the same every time. |
-| java | A SotW response lists its resources in the order they were added. | It keeps them in an insertion-ordered map. |
+| go, java | SotW sorts names (§2.2) by their UTF-8 bytes in go, and by UTF-16 code units in java. | Each is its language's string order. They differ only for a name with characters above U+FFFF, which Envoy config doesn't use in practice. |
 
 ### 8.2 Differences only the user can see
 
 | Port | What it does | Why |
 |---|---|---|
-| go | A NACK unsubscribes the stream from the config source. | A frozen stream will never send another change, so it stops taking updates. java stays subscribed and drops them. |
-| go | An update equal to the last is still run through the config builders, which find nothing changed. | The server doesn't compare updates. java skips an update equal to the stream's current state. Envoy gets nothing either way. |
-| go | A snapshot editor drops a type whose last resource was removed. | An empty type is the same as no type. java keeps it, empty. |
-| go | Starting a new phase always adds one, even if the current phase is empty. | An empty phase changes no view, so costs nothing. java adds one only if the current phase has edits. The result is the same. |
 | go | Each stream does its work on its own goroutine; the snapshot source delivers updates into a per-stream mailbox that never blocks. | Goroutines are cheap. java delivers updates on a shared pool of threads, so thousands of Envoys don't need thousands of threads, and handles requests on gRPC's threads. |
 
 ## Not yet covered by a vector
@@ -448,13 +501,13 @@ These rules have no vector yet. This is the to-do list for new ones. Rules marke
   lists, and names subscribed to during a wildcard.
 - §4.10: a type that isn't served is answered with nothing.
 - §4.10: an unknown type URL is left unanswered (needs the format: vectors name only the eight types).
-- §4.10: subscribing to and unsubscribing from one name fails the stream (needs the format: a step can't expect a
-  stream to fail).
+- §4.10: subscribing to and unsubscribing from one name fails the stream with `INVALID_ARGUMENT` (needs the format: a
+  step can't expect a stream to fail).
 - §5.1: a NACK mid-change stops stale removals still waiting.
 - §5.2: a frozen stream answers a type the change left mid-way from the mid-way state, keeping what its remove round
   would have removed.
 - §5.3: resync (needs the format: a step for the user closing a stream).
-- §6.1: a waiting stale removal skips names no longer subscribed to, or back since.
+- §6.1: a waiting stale removal skips names no longer subscribed to.
 - §6.1: a resource Envoy kept that still exists is sent again.
 - §6.3: the 30 second give-ups, for stale removals and `delayUpdatesUntilAckOf` (needs the format: time).
 - §6.4: a SotW Envoy loses a cluster it kept with the first CDS answer.
