@@ -287,6 +287,12 @@ response.
 
 Either way, a request with `error_detail` still freezes the stream (§5.1).
 
+Example: [sotw-ack-of-an-earlier-response-is-ignored](vectors/sotw-ack-of-an-earlier-response-is-ignored.json).
+
+Example: [delta-ack-of-an-earlier-response-still-subscribes](vectors/delta-ack-of-an-earlier-response-still-subscribes.json).
+
+Example: [nack-of-an-earlier-response-still-freezes](vectors/nack-of-an-earlier-response-still-freezes.json).
+
 ### 4.9 Wildcards
 
 On SotW, each request lists every name Envoy wants:
@@ -500,8 +506,6 @@ These rules have no vector yet. This is the to-do list for new ones. Rules marke
 - §4.5: a held NACK freezes the stream at once.
 - §4.6: a delta request re-subscribing to names is answered again.
 - §4.7: a request that only unsubscribes gets no answer; a SotW request with an unchanged list gets none.
-- §4.8: SotW ignores a request with a stale nonce, subscriptions and all; delta applies its subscription changes.
-- §4.8 and §5.1: a NACK with a stale nonce still freezes the stream.
 - §4.9: SotW `*`, an empty list after names, and leaving the wildcard; delta `*` in the subscribe and unsubscribe
   lists, and names subscribed to during a wildcard.
 - §4.10: a type that isn't served is answered with nothing.

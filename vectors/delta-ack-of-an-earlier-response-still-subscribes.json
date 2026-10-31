@@ -1,0 +1,18 @@
+{
+  "name": "delta-ack-of-an-earlier-response-still-subscribes",
+  "description": "On delta, a request answering an earlier response than the latest of its type answers nothing, but its subscription changes apply: each request changes the last set, so dropping them would lose them.",
+  "protocols": ["delta"],
+  "serves": ["EDS"],
+  "envoys": [{"name": "envoy", "view": "v"}],
+  "steps": [
+    {"update": [{"setView": "v", "groups": ["g"]}, {"editGroup": "g", "put": {"EDS": [{"clusterName": "a"}, {"clusterName": "b"}]}}]},
+    {"request": "EDS", "subscribe": ["a"], "expect": [{"type": "EDS", "resources": [{"clusterName": "a"}]}]},
+    {"request": "EDS", "ack": "last"},
+    {
+      "update": [{"editGroup": "g", "put": {"EDS": [{"clusterName": "a", "policy": {"overprovisioningFactor": 200}}]}}],
+      "expect": [{"type": "EDS", "resources": [{"clusterName": "a", "policy": {"overprovisioningFactor": 200}}]}]
+    },
+    {"request": "EDS", "subscribe": ["b"], "ack": "last-1", "expect": [{"type": "EDS", "resources": [{"clusterName": "b"}]}]},
+    {"request": "EDS", "ack": "last"}
+  ]
+}

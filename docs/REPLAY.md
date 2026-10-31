@@ -15,8 +15,8 @@ JSON. For each, in order, it writes one line of JSON to stdout, and flushes it. 
 Each vector runs as VECTORS.md says, once per protocol in its `protocols`, with these differences:
 
 - `expect` is ignored, and so is `differs`.
-- An `ack` or `nack` of `"last"`, when the Envoy has had no response of that type on its stream, is left out: the
-  request answers nothing. So a generated vector needn't know which responses a port sends.
+- An `ack` or `nack` of `"last"` or `"last-<n>"`, when the Envoy hasn't had that many responses of that type on its
+  stream, is left out: the request answers nothing. So a generated vector needn't know which responses a port sends.
 
 A vector that is wrong in any other way, such as a `disconnect` of an Envoy with no stream, `kept` on SotW, or a label
 no response has, is an error. The fuzzer never generates one.

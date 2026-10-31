@@ -67,7 +67,7 @@
       "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
     },
     "ref": {
-      "description": "A response: \"last\", the last of the request's type on this Envoy's stream, or a label.",
+      "description": "A response: \"last\", the last of the request's type on this Envoy's stream, \"last-1\" the one before it, and so on, or a label.",
       "$ref": "#/$defs/label"
     },
     "names": {
@@ -227,7 +227,7 @@
       "properties": {
         "type": {"$ref": "#/$defs/type"},
         "envoy": {"description": "Which Envoy gets it. Needed only when there are several.", "type": "string"},
-        "as": {"$ref": "#/$defs/label"},
+        "as": {"$ref": "#/$defs/label", "not": {"pattern": "^last(-[0-9]+)?$"}},
         "resources": {
           "description": "SotW: the whole set. Delta: what's added or changed. Compared as a set, by name and content.",
           "type": "array",

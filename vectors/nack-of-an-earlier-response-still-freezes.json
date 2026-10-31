@@ -1,0 +1,34 @@
+{
+  "name": "nack-of-an-earlier-response-still-freezes",
+  "description": "A NACK freezes the stream even when it answers an earlier response than the latest of its type: no later change is sent, but subscriptions are still answered from the state at the NACK.",
+  "protocols": ["sotw", "delta"],
+  "serves": ["EDS"],
+  "envoys": [{"name": "envoy", "view": "v"}],
+  "steps": [
+    {"update": [{"setView": "v", "groups": ["g"]}, {"editGroup": "g", "put": {"EDS": [{"clusterName": "a"}, {"clusterName": "b"}]}}]},
+    {"request": "EDS", "subscribe": ["a"], "expect": [{"type": "EDS", "resources": [{"clusterName": "a"}]}]},
+    {"request": "EDS", "ack": "last"},
+    {
+      "update": [{"editGroup": "g", "put": {"EDS": [{"clusterName": "a", "policy": {"overprovisioningFactor": 200}}]}}],
+      "expect": [{"type": "EDS", "resources": [{"clusterName": "a", "policy": {"overprovisioningFactor": 200}}]}]
+    },
+    {"request": "EDS", "nack": "last-1"},
+    {"request": "EDS", "ack": "last"},
+    {
+      "update": [{"editGroup": "g", "put": {"EDS": [{"clusterName": "a", "policy": {"overprovisioningFactor": 300}}]}}],
+      "comment": "Frozen: not sent"
+    },
+    {
+      "request": "EDS",
+      "subscribe": ["b"],
+      "expect": [
+        {
+          "type": "EDS",
+          "sotw": {"resources": [{"clusterName": "a", "policy": {"overprovisioningFactor": 200}}, {"clusterName": "b"}]},
+          "delta": {"resources": [{"clusterName": "b"}]},
+          "comment": "From the state at the NACK"
+        }
+      ]
+    }
+  ]
+}

@@ -130,7 +130,7 @@ An update before any Envoy connects sets up the config, and expects nothing.
 |---|---|
 | `request` | The request's type. |
 | `subscribe`, `unsubscribe` | Names the Envoy starts or stops wanting. A type's first request with neither, on a wildcard type, is a wildcard subscription. `*` is a name like any other. |
-| `ack` or `nack` | The response it answers, accepting or rejecting it: `"last"`, the last response of this type on the Envoy's stream, or a label (see below). Not both. |
+| `ack` or `nack` | The response it answers, accepting or rejecting it: `"last"`, the last response of this type on the Envoy's stream, `"last-1"` the one before it (and so on), or a label (see below). Not both. |
 | `kept` | Delta only: names the Envoy kept from an earlier stream, sent in `initial_resource_versions`. |
 | `envoy` | Which Envoy sends it. Needed only when there are several. |
 
@@ -192,8 +192,12 @@ A vector that runs on both protocols says where they differ with `sotw` and `del
 ### Labels, not versions
 
 Ports format versions and nonces differently, on purpose, so vectors never contain them. A request answers a response
-by reference: `"last"` for the last one of its type on the Envoy's stream, or a label given with `as`, so a step can
-answer an earlier response, or one of a type other than the last it got. Labels are lower case words joined by `-`.
+by reference: `"last"` for the last one of its type on the Envoy's stream, `"last-1"` for the one before it, `"last-2"`
+for the one before that, and so on, or a label given with `as`, so a step can answer an earlier response, or one of a
+type other than the last it got. Labels are lower case words joined by `-`, other than `last` and `last-<n>`.
+
+An answer to an earlier response is how Envoy's ACK of one response arrives after the next has been sent: Envoy sent
+it before the next reached it. The port has moved on, so its nonce is stale (SPEC §4.8).
 
 ## Resources
 
