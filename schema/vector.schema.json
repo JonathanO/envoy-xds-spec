@@ -97,7 +97,7 @@
         "name": {"description": "Its node ID, and its client details.", "type": "string", "minLength": 1},
         "view": {"description": "What viewOf returns for it.", "type": "string", "minLength": 1},
         "subscribesTo": {
-          "description": "The types this Envoy gets from the server. Omitted: every type served.",
+          "description": "The types this Envoy gets from the server. Omitted: every type served. Empty: none.",
           "type": "array",
           "items": {"$ref": "#/$defs/type"},
           "uniqueItems": true

@@ -1,0 +1,15 @@
+{
+  "name": "delta-empty-subscribes-to-waits-for-no-type",
+  "description": "An Envoy whose subscribesTo is empty gets no type from the port, so a stale removal waits for no other type: it goes with the answer. Omitting subscribesTo instead means every type served.",
+  "protocols": ["delta"],
+  "serves": ["CDS", "LDS"],
+  "envoys": [{"name": "envoy", "view": "v", "subscribesTo": []}],
+  "steps": [
+    {"update": [{"setView": "v", "groups": ["g"]}]},
+    {
+      "request": "CDS",
+      "kept": ["stale"],
+      "expect": [{"type": "CDS", "removed": ["stale"], "comment": "Had subscribesTo been omitted, this would wait for LDS"}]
+    }
+  ]
+}
