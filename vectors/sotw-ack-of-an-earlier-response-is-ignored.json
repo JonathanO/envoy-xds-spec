@@ -1,0 +1,24 @@
+{
+  "name": "sotw-ack-of-an-earlier-response-is-ignored",
+  "description": "On SotW, a request answering an earlier response than the latest of its type is ignored, subscriptions and all: Envoy sent it before the latest reached it, and its next request lists every name anyway.",
+  "protocols": ["sotw"],
+  "serves": ["EDS"],
+  "envoys": [{"name": "envoy", "view": "v"}],
+  "steps": [
+    {"update": [{"setView": "v", "groups": ["g"]}, {"editGroup": "g", "put": {"EDS": [{"clusterName": "a"}, {"clusterName": "b"}]}}]},
+    {"request": "EDS", "subscribe": ["a"], "expect": [{"type": "EDS", "resources": [{"clusterName": "a"}]}]},
+    {"request": "EDS", "ack": "last"},
+    {
+      "update": [{"editGroup": "g", "put": {"EDS": [{"clusterName": "a", "policy": {"overprovisioningFactor": 200}}]}}],
+      "expect": [{"type": "EDS", "resources": [{"clusterName": "a", "policy": {"overprovisioningFactor": 200}}]}]
+    },
+    {"request": "EDS", "subscribe": ["b"], "ack": "last-1", "comment": "A stale nonce: b isn't answered"},
+    {
+      "request": "EDS",
+      "ack": "last",
+      "comment": "Lists a and b, as Envoy wants both: the ACK answers b too",
+      "expect": [{"type": "EDS", "resources": [{"clusterName": "a", "policy": {"overprovisioningFactor": 200}}, {"clusterName": "b"}]}]
+    },
+    {"request": "EDS", "ack": "last"}
+  ]
+}
