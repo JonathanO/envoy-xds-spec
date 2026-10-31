@@ -332,4 +332,45 @@ public class DeltaConversationAssertTest {
         c.onRequest(subscribe(XdsTypes.RDS, "routes"));
         assertThatCode(() -> DeltaConversationAssert.assertThat(c).askedForEveryRouteConfigInUse()).doesNotThrowAnyException();
     }
+
+    @Test
+    public void requestsAnswerEachResponseOnceAndSayWhatWasKeptFirst() {
+        Conversation c = new Conversation();
+        c.onRequest(subscribe(XdsTypes.CDS).toBuilder().putInitialResourceVersions("v1", "1").build());
+        exchange(c, XdsTypes.CDS, cluster("v1"));
+        c.onRequest(subscribe(XdsTypes.CDS, "v2"));
+        String n = send(c, XdsTypes.CDS, cluster("v2"));
+        c.onRequest(nack(XdsTypes.CDS, n));
+        c.onRequest(ack(XdsTypes.CDS, "old stream"));
+        assertThatCode(() -> DeltaConversationAssert.assertThat(c).requestedAsVectorsModel()).doesNotThrowAnyException();
+    }
+
+    @Test
+    public void catchesAResponseAnsweredTwice() {
+        Conversation c = new Conversation();
+        c.onRequest(subscribe(XdsTypes.CDS));
+        String n = send(c, XdsTypes.CDS, cluster("v1"));
+        c.onRequest(ack(XdsTypes.CDS, n));
+        c.onRequest(ack(XdsTypes.CDS, n));
+        assertThatThrownBy(() -> DeltaConversationAssert.assertThat(c).requestedAsVectorsModel())
+            .hasMessageContaining("Response <" + n + "> of <" + XdsTypes.CDS + "> answered twice");
+    }
+
+    @Test
+    public void catchesWhatWasKeptAfterTheFirstRequest() {
+        Conversation c = new Conversation();
+        c.onRequest(subscribe(XdsTypes.CDS));
+        c.onRequest(subscribe(XdsTypes.CDS).toBuilder().putInitialResourceVersions("v1", "1").build());
+        assertThatThrownBy(() -> DeltaConversationAssert.assertThat(c).requestedAsVectorsModel())
+            .hasMessageContaining("Request for <" + XdsTypes.CDS + "> has initial_resource_versions, but isn't the type's first");
+    }
+
+    @Test
+    public void catchesANackNamingNoResponse() {
+        Conversation c = new Conversation();
+        c.onRequest(subscribe(XdsTypes.CDS));
+        c.onRequest(nack(XdsTypes.CDS, ""));
+        assertThatThrownBy(() -> DeltaConversationAssert.assertThat(c).requestedAsVectorsModel())
+            .hasMessageContaining("NACK of <" + XdsTypes.CDS + "> names no response");
+    }
 }
