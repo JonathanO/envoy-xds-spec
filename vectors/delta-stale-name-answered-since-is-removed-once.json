@@ -1,0 +1,52 @@
+{
+  "name": "delta-stale-name-answered-since-is-removed-once",
+  "description": "A stale name a reconnecting delta Envoy kept, answered with a resource before its removal is due, is no longer stale: a change that removes it removes it once.",
+  "protocols": ["delta"],
+  "serves": ["CDS", "RDS"],
+  "envoys": [{"name": "envoy", "view": "v"}],
+  "steps": [
+    {
+      "update": [
+        {"setView": "v", "groups": ["g"]},
+        {
+          "editGroup": "g",
+          "put": {"RDS": [{"name": "r", "virtualHosts": [{"routes": [{"route": {"cluster": "x"}}]}]}]}
+        }
+      ]
+    },
+    {
+      "request": "CDS",
+      "subscribe": ["a"],
+      "kept": ["a"],
+      "expect": [{"type": "CDS", "comment": "a is gone, and its removal waits for the routes"}]
+    },
+    {"request": "CDS", "ack": "last"},
+    {
+      "update": [{"editGroup": "g", "put": {"CDS": [{"name": "a", "connectTimeout": "1s"}]}}],
+      "expect": [{"type": "CDS", "resources": [{"name": "a", "connectTimeout": "1s"}]}]
+    },
+    {"request": "CDS", "ack": "last"},
+    {
+      "request": "CDS",
+      "subscribe": ["a"],
+      "expect": [
+        {
+          "type": "CDS",
+          "resources": [{"name": "a", "connectTimeout": "1s"}],
+          "comment": "Answered with a, so its removal is no longer due"
+        }
+      ]
+    },
+    {"request": "CDS", "ack": "last"},
+    {"update": [{"editGroup": "g", "remove": {"CDS": ["a"]}}], "expect": [{"type": "CDS", "removed": ["a"]}]},
+    {"request": "CDS", "ack": "last"},
+    {
+      "request": "RDS",
+      "subscribe": ["r"],
+      "expect": [
+        {"type": "RDS", "resources": [{"name": "r", "virtualHosts": [{"routes": [{"route": {"cluster": "x"}}]}]}]}
+      ]
+    },
+    {"request": "RDS", "ack": "last", "comment": "a went with the change, and isn't removed again"}
+  ]
+}
