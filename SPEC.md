@@ -447,7 +447,9 @@ Seen with Envoy, in the [conformance suite](conformance/README.md#conformance-su
 
 ### 7.1 What is required
 
-- Each response has a nonce that differs from every earlier response's nonce of its type on the stream.
+- Each response has a nonce that differs from every earlier response's nonce of its type on the stream. Nonces needn't
+  differ across streams: Envoy starts each stream with no nonce, so a request never names a response from an earlier
+  one. Every port's conformance run checks this, on each Envoy release it runs.
 - A request answers the latest response of its type if its `response_nonce` is that response's nonce.
 - On SotW, each response has a `version_info`. A request answering the latest response is an ACK only if its
   `version_info` equals that response's. With `error_detail`, it is a NACK. With neither, it answers nothing, and the

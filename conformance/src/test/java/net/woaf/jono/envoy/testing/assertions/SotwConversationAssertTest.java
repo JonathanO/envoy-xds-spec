@@ -302,7 +302,7 @@ public class SotwConversationAssertTest {
         Conversation c = ackedThenSentAnother();
         c.onRequest(cdsRequest("b", "1")); // a plain request, sent before Envoy took b
         c.onRequest(nack(XdsTypes.CDS, "b").toBuilder().setVersionInfo("1").build());
-        c.onRequest(cdsRequest("old stream", "7"));
+        c.onRequest(cdsRequest("", "7"));
         assertThatCode(() -> SotwConversationAssert.assertThat(c).requestedAsVectorsModel()).doesNotThrowAnyException();
     }
 
@@ -312,6 +312,14 @@ public class SotwConversationAssertTest {
         c.onRequest(nack(XdsTypes.CDS, "b").toBuilder().setVersionInfo("2").build());
         assertThatThrownBy(() -> SotwConversationAssert.assertThat(c).requestedAsVectorsModel())
             .hasMessageContaining("has version <2>: neither the ACK of the response it names, version <2>, nor the version Envoy last ACKed, <1>");
+    }
+
+    @Test
+    public void catchesANonceFromAnotherStream() {
+        Conversation c = ackedThenSentAnother();
+        c.onRequest(cdsRequest("old stream", "1"));
+        assertThatThrownBy(() -> SotwConversationAssert.assertThat(c).requestedAsVectorsModel())
+            .hasMessageContaining("Request for <" + XdsTypes.CDS + "> names response <old stream>, which wasn't sent on this stream");
     }
 
     @Test

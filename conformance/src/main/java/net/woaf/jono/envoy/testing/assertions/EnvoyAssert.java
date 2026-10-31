@@ -115,8 +115,10 @@ public abstract class EnvoyAssert<SelfT extends EnvoyAssert<SelfT>> extends Abst
      * vectors play Envoy as it is. On SotW, a request that names a response carries its version, an ACK, or the version
      * Envoy last ACKed on this stream. On delta, Envoy answers each response at most once, and sends
      * {@code initial_resource_versions} only on a type's first request. Either way, a NACK names the response it
-     * rejects. A request naming no response sent on this stream, such as one echoing a nonce from Envoy's previous
-     * stream, may carry any version. The node isn't checked: whether Envoy sends it on every request is its config's.
+     * rejects, and a request names only responses sent on this stream: Envoy starts each stream with no nonce, which is
+     * what lets ports number nonces from 1 on every stream. A SotW request naming no response may carry any version,
+     * such as the last Envoy ACKed on its previous stream. The node isn't checked: whether Envoy sends it on every
+     * request is its config's.
      * @return this
      */
     @CanIgnoreReturnValue
