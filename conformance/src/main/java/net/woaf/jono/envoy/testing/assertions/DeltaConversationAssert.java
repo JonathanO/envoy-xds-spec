@@ -292,7 +292,9 @@ public class DeltaConversationAssert extends EnvoyAssert<DeltaConversationAssert
                     if (r.hasErrorDetail()) {
                         failWithMessage("NACK of <%s> names no response", r.getTypeUrl());
                     }
-                } else if (sent.contains(response) && !answered.add(response)) {
+                } else if (!sent.contains(response)) {
+                    failWithMessage("Request for <%s> names response <%s>, which wasn't sent on this stream", r.getTypeUrl(), r.getResponseNonce());
+                } else if (!answered.add(response)) {
                     failWithMessage("Response <%s> of <%s> answered twice", r.getResponseNonce(), r.getTypeUrl());
                 }
             }

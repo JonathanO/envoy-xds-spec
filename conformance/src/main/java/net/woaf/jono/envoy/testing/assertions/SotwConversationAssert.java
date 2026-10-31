@@ -322,7 +322,10 @@ public class SotwConversationAssert extends EnvoyAssert<SotwConversationAssert> 
                 }
                 String answered = versions.get(r.getTypeUrl() + " " + r.getResponseNonce());
                 if (answered == null) {
-                    continue; // answers nothing on this stream, so its version can be anything, such as Envoy's from the last
+                    if (!r.getResponseNonce().isEmpty()) {
+                        failWithMessage("Request for <%s> names response <%s>, which wasn't sent on this stream", r.getTypeUrl(), r.getResponseNonce());
+                    }
+                    continue; // answers nothing yet, so its version can be anything, such as the last Envoy ACKed on its last stream
                 }
                 String last = acked.get(r.getTypeUrl());
                 if (!r.hasErrorDetail() && r.getVersionInfo().equals(answered)) {

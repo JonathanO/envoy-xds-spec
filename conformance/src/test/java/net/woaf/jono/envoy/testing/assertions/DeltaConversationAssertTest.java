@@ -341,7 +341,6 @@ public class DeltaConversationAssertTest {
         c.onRequest(subscribe(XdsTypes.CDS, "v2"));
         String n = send(c, XdsTypes.CDS, cluster("v2"));
         c.onRequest(nack(XdsTypes.CDS, n));
-        c.onRequest(ack(XdsTypes.CDS, "old stream"));
         assertThatCode(() -> DeltaConversationAssert.assertThat(c).requestedAsVectorsModel()).doesNotThrowAnyException();
     }
 
@@ -354,6 +353,14 @@ public class DeltaConversationAssertTest {
         c.onRequest(ack(XdsTypes.CDS, n));
         assertThatThrownBy(() -> DeltaConversationAssert.assertThat(c).requestedAsVectorsModel())
             .hasMessageContaining("Response <" + n + "> of <" + XdsTypes.CDS + "> answered twice");
+    }
+
+    @Test
+    public void catchesANonceFromAnotherStream() {
+        Conversation c = new Conversation();
+        c.onRequest(ack(XdsTypes.CDS, "old stream"));
+        assertThatThrownBy(() -> DeltaConversationAssert.assertThat(c).requestedAsVectorsModel())
+            .hasMessageContaining("Request for <" + XdsTypes.CDS + "> names response <old stream>, which wasn't sent on this stream");
     }
 
     @Test

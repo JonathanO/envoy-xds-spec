@@ -143,7 +143,8 @@ For delta xDS, use `DeltaConversationAssert` and set `api_type: DELTA_GRPC` in E
 - `allWereAcked()`: Envoy ACKed every response, and NACKed none.
 - `requestedAsVectorsModel()`: Envoy's requests are as the trace vectors' runners make them, so the vectors play Envoy
   as it is: on SotW, a request naming a response carries its version or the last ACKed; on delta, each response is
-  answered at most once, and `initial_resource_versions` comes only on a type's first request; a NACK names a response.
+  answered at most once, and `initial_resource_versions` comes only on a type's first request; a NACK names a response;
+  and a request names only responses sent on its own stream.
 - `answeredEveryType()`: every type Envoy asked for got a response. Without one, Envoy waits out its initial fetch
   timeout, or forever if that is disabled. A request for a name that doesn't exist needs a response too.
 - `sentNoEmptyResponses(mark)`: no empty response after the mark. An empty first response for a wildcard type is fine,
