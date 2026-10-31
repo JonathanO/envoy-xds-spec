@@ -307,6 +307,35 @@ public class SotwConversationAssert extends EnvoyAssert<SotwConversationAssert> 
         return this;
     }
 
+    @Override
+    @CanIgnoreReturnValue
+    public SotwConversationAssert requestedAsVectorsModel() {
+        isNotNull();
+        Map<String, String> versions = new HashMap<>(); // of each response, by its type and nonce
+        Map<String, String> acked = new HashMap<>(); // by type: the version Envoy last ACKed on this stream
+        for (Object message : actual.getMessages()) {
+            if (message instanceof DiscoveryResponse r) {
+                versions.put(r.getTypeUrl() + " " + r.getNonce(), r.getVersionInfo());
+            } else if (message instanceof DiscoveryRequest r) {
+                if (r.hasErrorDetail() && r.getResponseNonce().isEmpty()) {
+                    failWithMessage("NACK of <%s> names no response", r.getTypeUrl());
+                }
+                String answered = versions.get(r.getTypeUrl() + " " + r.getResponseNonce());
+                if (answered == null) {
+                    continue; // answers nothing on this stream, so its version can be anything, such as Envoy's from the last
+                }
+                String last = acked.get(r.getTypeUrl());
+                if (!r.hasErrorDetail() && r.getVersionInfo().equals(answered)) {
+                    acked.put(r.getTypeUrl(), answered);
+                } else if (last != null && !r.getVersionInfo().equals(last)) {
+                    failWithMessage("Request for <%s> has version <%s>: neither the ACK of the response it names, version <%s>, nor"
+                        + " the version Envoy last ACKed, <%s>", r.getTypeUrl(), r.getVersionInfo(), answered, last);
+                }
+            }
+        }
+        return this;
+    }
+
     /** An AssertJ factory for these checks. */
     public static class Factory implements AssertFactory<Conversation, SotwConversationAssert> {
 

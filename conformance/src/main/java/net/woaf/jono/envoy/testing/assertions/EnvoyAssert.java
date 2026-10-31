@@ -110,4 +110,16 @@ public abstract class EnvoyAssert<SelfT extends EnvoyAssert<SelfT>> extends Abst
     @CanIgnoreReturnValue
     public abstract SelfT hadConversationsWith(String... typeUrls);
 
+    /**
+     * Envoy's requests are as the trace vectors' runners make them, as envoy-xds-spec's docs/VECTORS.md says, so the
+     * vectors play Envoy as it is. On SotW, a request that names a response carries its version, an ACK, or the version
+     * Envoy last ACKed on this stream. On delta, Envoy answers each response at most once, and sends
+     * {@code initial_resource_versions} only on a type's first request. Either way, a NACK names the response it
+     * rejects. A request naming no response sent on this stream, such as one echoing a nonce from Envoy's previous
+     * stream, may carry any version. The node isn't checked: whether Envoy sends it on every request is its config's.
+     * @return this
+     */
+    @CanIgnoreReturnValue
+    public abstract SelfT requestedAsVectorsModel();
+
 }

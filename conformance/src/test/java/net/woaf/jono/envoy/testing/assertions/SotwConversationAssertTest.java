@@ -278,4 +278,47 @@ public class SotwConversationAssertTest {
         c.onRequest(request(XdsTypes.RDS, "", "routes"));
         assertThatCode(() -> SotwConversationAssert.assertThat(c).askedForEveryRouteConfigInUse()).doesNotThrowAnyException();
     }
+
+    private static DiscoveryResponse response(String nonce, String version) {
+        return DiscoveryResponse.newBuilder().setTypeUrl(XdsTypes.CDS).setNonce(nonce).setVersionInfo(version).build();
+    }
+
+    private static DiscoveryRequest cdsRequest(String nonce, String version) {
+        return request(XdsTypes.CDS, nonce).toBuilder().setVersionInfo(version).build();
+    }
+
+    /** Envoy ACKed version 1, then got version 2. */
+    private static Conversation ackedThenSentAnother() {
+        Conversation c = new Conversation();
+        c.onRequest(cdsRequest("", ""));
+        c.onResponse(response("a", "1"));
+        c.onRequest(cdsRequest("a", "1"));
+        c.onResponse(response("b", "2"));
+        return c;
+    }
+
+    @Test
+    public void requestsCarryTheVersionTheyAckOrTheLastAcked() {
+        Conversation c = ackedThenSentAnother();
+        c.onRequest(cdsRequest("b", "1")); // a plain request, sent before Envoy took b
+        c.onRequest(nack(XdsTypes.CDS, "b").toBuilder().setVersionInfo("1").build());
+        c.onRequest(cdsRequest("old stream", "7"));
+        assertThatCode(() -> SotwConversationAssert.assertThat(c).requestedAsVectorsModel()).doesNotThrowAnyException();
+    }
+
+    @Test
+    public void catchesARequestWithAnotherVersion() {
+        Conversation c = ackedThenSentAnother();
+        c.onRequest(nack(XdsTypes.CDS, "b").toBuilder().setVersionInfo("2").build());
+        assertThatThrownBy(() -> SotwConversationAssert.assertThat(c).requestedAsVectorsModel())
+            .hasMessageContaining("has version <2>: neither the ACK of the response it names, version <2>, nor the version Envoy last ACKed, <1>");
+    }
+
+    @Test
+    public void catchesANackNamingNoResponse() {
+        Conversation c = ackedThenSentAnother();
+        c.onRequest(nack(XdsTypes.CDS, ""));
+        assertThatThrownBy(() -> SotwConversationAssert.assertThat(c).requestedAsVectorsModel())
+            .hasMessageContaining("NACK of <" + XdsTypes.CDS + "> names no response");
+    }
 }

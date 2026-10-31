@@ -151,6 +151,10 @@ So a SotW request that names no response, sent while the last response of its ty
 response's nonce with an older version. Vectors ACK or NACK a SotW response before the next plain request of its type,
 unless that is what they test.
 
+The conformance suite checks that real Envoys' requests follow these rules (`requestedAsVectorsModel`), on every
+scenario, so a vector's requests are ones Envoy could send. The node is the exception: whether Envoy sends it on every
+request is its config's (`set_node_on_first_message_only`), and the ports read it only from a stream's first request.
+
 ### `disconnect`: an Envoy closes its stream
 
 ```json

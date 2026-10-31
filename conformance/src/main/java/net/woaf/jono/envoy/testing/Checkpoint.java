@@ -71,11 +71,11 @@ public final class Checkpoint {
 
     /**
      * Everything that should hold once things have settled after changes since this checkpoint. Envoy ACKed every
-     * response and was sent nothing it didn't ask for. Since the checkpoint: no empty responses, make before break, and
-     * see {@link #assertEnvoyHealthy()}.
+     * response, was sent nothing it didn't ask for, and made its requests as the trace vectors model them. Since the
+     * checkpoint: no empty responses, make before break, and see {@link #assertEnvoyHealthy()}.
      */
     public void assertSane() {
-        EnvoyAssert.of(conversation).nothingSentUnasked().allWereAcked().sentNoEmptyResponses(message).wasMakeBeforeBreak(message);
+        EnvoyAssert.of(conversation).nothingSentUnasked().allWereAcked().requestedAsVectorsModel().sentNoEmptyResponses(message).wasMakeBeforeBreak(message);
         assertEnvoyHealthy();
     }
 
@@ -84,7 +84,7 @@ public final class Checkpoint {
      * kept, so make before break isn't checked.
      */
     public void assertSaneAfterReconnect() {
-        EnvoyAssert.of(conversation).nothingSentUnasked().allWereAcked().sentNoEmptyResponses(message);
+        EnvoyAssert.of(conversation).nothingSentUnasked().allWereAcked().requestedAsVectorsModel().sentNoEmptyResponses(message);
         assertEnvoyHealthy();
     }
 
@@ -95,7 +95,7 @@ public final class Checkpoint {
      */
     public void assertSaneAfterReconnect(Conversation before) {
         // From 0, not the checkpoint: it's taken once the reconnect has synced, and those answers are what can break.
-        EnvoyAssert.of(conversation).nothingSentUnasked().allWereAcked().sentNoEmptyResponses(message)
+        EnvoyAssert.of(conversation).nothingSentUnasked().allWereAcked().requestedAsVectorsModel().sentNoEmptyResponses(message)
             .wasMakeBeforeBreak(0, before);
         assertEnvoyHealthy();
     }

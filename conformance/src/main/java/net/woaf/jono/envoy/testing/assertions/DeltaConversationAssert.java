@@ -273,6 +273,33 @@ public class DeltaConversationAssert extends EnvoyAssert<DeltaConversationAssert
         return this;
     }
 
+    @Override
+    @CanIgnoreReturnValue
+    public DeltaConversationAssert requestedAsVectorsModel() {
+        isNotNull();
+        Set<String> sent = new HashSet<>(); // each response, by its type and nonce
+        Set<String> answered = new HashSet<>();
+        Set<String> asked = new HashSet<>(); // types Envoy has sent a request for
+        for (Object message : actual.getMessages()) {
+            if (message instanceof DeltaDiscoveryResponse r) {
+                sent.add(r.getTypeUrl() + " " + r.getNonce());
+            } else if (message instanceof DeltaDiscoveryRequest r) {
+                if (!asked.add(r.getTypeUrl()) && r.getInitialResourceVersionsCount() > 0) {
+                    failWithMessage("Request for <%s> has initial_resource_versions, but isn't the type's first", r.getTypeUrl());
+                }
+                String response = r.getTypeUrl() + " " + r.getResponseNonce();
+                if (r.getResponseNonce().isEmpty()) {
+                    if (r.hasErrorDetail()) {
+                        failWithMessage("NACK of <%s> names no response", r.getTypeUrl());
+                    }
+                } else if (sent.contains(response) && !answered.add(response)) {
+                    failWithMessage("Response <%s> of <%s> answered twice", r.getResponseNonce(), r.getTypeUrl());
+                }
+            }
+        }
+        return this;
+    }
+
     /** An AssertJ factory for these checks. */
     public static class Factory implements AssertFactory<Conversation, DeltaConversationAssert> {
 
