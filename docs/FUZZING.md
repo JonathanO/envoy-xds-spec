@@ -39,10 +39,9 @@ To fix one:
 
 Vectors with one or two Envoys, on one protocol, over a few names (`a`, `b`, `c` and `*`), three groups and two
 views, with steps chosen at random: updates (views, group edits and replacements, removals, phases), requests
-(subscribing, unsubscribing, ACKing or NACKing the last response, and on delta what a reconnecting Envoy kept), and
+(subscribing, unsubscribing, ACKing or NACKing the last response or the one before it, and on delta what a
+reconnecting Envoy kept), and
 disconnects. Each resource is one of two variants, so a put may change it or not. Hegel steers towards vectors that
 make the ports send more.
 
-It never answers a response other than the last of its type, so it doesn't reach the stale nonce rules (SPEC §4.8);
-that needs labels the generator can't know in advance. Time isn't in the format, so neither are the 30 second
-give-ups (§6.3).
+Time isn't in the format, so it doesn't reach the 30 second give-ups (§6.3).

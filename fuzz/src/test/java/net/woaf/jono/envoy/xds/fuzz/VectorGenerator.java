@@ -169,10 +169,12 @@ final class VectorGenerator {
             step.add("unsubscribe", array(unsubscribe));
         }
         int answer = tc.draw(integers().min(0).max(19), "answer");
+        // Sometimes the response before the last: Envoy's answer to one, sent before the next reached it (SPEC §4.8).
+        String ref = tc.generateBoolean(0.2) ? "last-1" : "last";
         if (answer == 19) {
-            step.addProperty("nack", "last"); // freezes the stream, so seldom
+            step.addProperty("nack", ref); // freezes the stream, so seldom
         } else if (answer >= 6) {
-            step.addProperty("ack", "last");
+            step.addProperty("ack", ref);
         }
         Set<String> asked = streams.computeIfAbsent(envoy, e -> new HashSet<>());
         if (protocol.equals("delta") && asked.add(type) && tc.generateBoolean(0.3)) {
