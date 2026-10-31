@@ -412,8 +412,9 @@ Seen with Envoy, in the [conformance suite](conformance/README.md#conformance-su
 
 ### 6.2 `subscribesTo`
 
-A per-Envoy option: the types that Envoy gets from the port. By default it is every served type. Stale removals don't
-wait for types it leaves out, and `delayUpdatesUntilAckOf` naming such a type is ignored (§3.2).
+A per-Envoy option: the types that Envoy gets from the port. By default it is every served type. An empty list means
+no type at all, not the default. Stale removals don't wait for types it leaves out, and `delayUpdatesUntilAckOf`
+naming such a type is ignored (§3.2).
 
 This matters for types only some Envoys use, such as SRDS or VHDS, or listeners for an Envoy with static ones. A port
 can't tell an Envoy that won't ask for a type from one that hasn't asked yet: Envoy asks only once the listeners and
@@ -423,6 +424,8 @@ gets it.
 Example: [delta-stale-removals-go-in-remove-order](vectors/delta-stale-removals-go-in-remove-order.json).
 
 Example: [change-waits-for-held-requests](vectors/change-waits-for-held-requests.json).
+
+Example: [delta-empty-subscribes-to-waits-for-no-type](vectors/delta-empty-subscribes-to-waits-for-no-type.json).
 
 ### 6.3 The 30 second give-up
 
