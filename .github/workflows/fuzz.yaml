@@ -1,0 +1,74 @@
+name: "Differential fuzzer"
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: "17 3 * * *" # nightly
+  workflow_dispatch:
+    inputs:
+      cases:
+        description: "How many vectors to try"
+        default: "100000"
+
+jobs:
+  test:
+    name: "Build & Test"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: fuzz
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: zulu
+          java-version: 25
+      - uses: gradle/actions/setup-gradle@v6
+      - run: ../conformance/gradlew test --console=plain
+
+  # Every port's replay mode, from its main branch, against this repo's: see docs/FUZZING.md.
+  fuzz:
+    name: "Fuzz"
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7
+        with:
+          repository: JonathanO/java-envoy-xds
+          path: ports/java
+          submodules: true
+      - uses: actions/checkout@v7
+        with:
+          repository: JonathanO/go-envoy-xds
+          path: ports/go
+      - uses: actions/setup-java@v6
+        with:
+          distribution: zulu
+          java-version: 25
+      - uses: gradle/actions/setup-gradle@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: ports/go/go.mod
+      - name: "Build the Java replay mode"
+        run: ./gradlew :envoy-xds-spec-tests:replayScript --console=plain
+        working-directory: ports/java
+      - name: "Fuzz"
+        run: |
+          ../conformance/gradlew fuzz --console=plain \
+            -Pports=java=$GITHUB_WORKSPACE/ports/java/envoy-xds-spec-tests/build/replay,go=$GITHUB_WORKSPACE/ports/go/spectest/replay \
+            -PfuzzCases=${{ inputs.cases || '100000' }}
+        working-directory: fuzz
+      - name: "Upload the mismatch"
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: fuzz
+          path: fuzz/build/fuzz/

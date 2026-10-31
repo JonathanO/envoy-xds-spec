@@ -19,8 +19,9 @@ anything refers to it, and nothing is removed while anything still refers to it.
   Every port runs every vector in its own CI, through its snapshot module. [docs/VECTORS.md](docs/VECTORS.md)
   describes the format, and [vectors/](vectors) holds them.
 - **A differential fuzzer**: random scenarios run through every port, with the responses compared. A mismatch is a
-  bug, or a difference to add to the spec; either way, its scenario becomes a vector. Each port's vector runner has a
-  replay mode for it, which [docs/REPLAY.md](docs/REPLAY.md) describes.
+  bug, or a difference to add to the spec; either way, its scenario becomes a vector. [docs/FUZZING.md](docs/FUZZING.md)
+  says how to run it, and each port's vector runner has a replay mode for it, which [docs/REPLAY.md](docs/REPLAY.md)
+  describes.
 - **Conformance against real Envoy**: one harness, in [conformance/](conformance), runs real Envoys against every
   port. See [below](#conformance-against-real-envoy).
 
