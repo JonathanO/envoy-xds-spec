@@ -7,6 +7,8 @@ checks ports against each other.
   lists the difference.
 - A behaviour change needs a vector that fails without it. Write the vector here, then make each port pass it, or list
   why a port differs.
+- A behaviour change updates [SPEC.md](SPEC.md) as well as adding a vector. Link the vector from the rule it shows,
+  and take the rule off "Not yet covered by a vector" if it was there.
 - Vectors describe what Envoy sees, never a port's internals: config changes in, requests in, responses out. Refer to
   nonces and versions by label.
 - Shared tooling (the reference runner, the fuzzer, the conformance harness) lives with the reference implementation,
