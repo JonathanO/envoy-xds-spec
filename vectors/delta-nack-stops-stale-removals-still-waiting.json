@@ -1,0 +1,147 @@
+{
+  "name": "delta-nack-stops-stale-removals-still-waiting",
+  "description": "A NACK mid-change stops stale removals still waiting: they're never sent (SPEC \u00a75.1).",
+  "protocols": [
+    "delta"
+  ],
+  "serves": [
+    "CDS",
+    "RDS"
+  ],
+  "envoys": [
+    {
+      "name": "envoy",
+      "view": "v",
+      "subscribesTo": [
+        "CDS",
+        "RDS"
+      ]
+    }
+  ],
+  "steps": [
+    {
+      "update": [
+        {
+          "setView": "v",
+          "groups": [
+            "g"
+          ]
+        },
+        {
+          "editGroup": "g",
+          "put": {
+            "RDS": [
+              {
+                "name": "r",
+                "virtualHosts": [
+                  {
+                    "name": "vh",
+                    "domains": [
+                      "*"
+                    ],
+                    "routes": [
+                      {
+                        "match": {
+                          "prefix": "/"
+                        },
+                        "route": {
+                          "cluster": "x"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "request": "CDS",
+      "kept": [
+        "stale"
+      ],
+      "expect": [
+        {
+          "type": "CDS",
+          "comment": "stale waits for the routes"
+        }
+      ]
+    },
+    {
+      "request": "CDS",
+      "ack": "last"
+    },
+    {
+      "update": [
+        {
+          "editGroup": "g",
+          "put": {
+            "CDS": [
+              {
+                "name": "a",
+                "connectTimeout": "1s"
+              }
+            ]
+          }
+        }
+      ],
+      "expect": [
+        {
+          "type": "CDS",
+          "resources": [
+            {
+              "name": "a",
+              "connectTimeout": "1s"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "request": "CDS",
+      "nack": "last",
+      "comment": "Freezes"
+    },
+    {
+      "request": "RDS",
+      "subscribe": [
+        "r"
+      ],
+      "expect": [
+        {
+          "type": "RDS",
+          "resources": [
+            {
+              "name": "r",
+              "virtualHosts": [
+                {
+                  "name": "vh",
+                  "domains": [
+                    "*"
+                  ],
+                  "routes": [
+                    {
+                      "match": {
+                        "prefix": "/"
+                      },
+                      "route": {
+                        "cluster": "x"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "request": "RDS",
+      "ack": "last",
+      "comment": "Routes ACKed, but stale is never removed"
+    }
+  ]
+}

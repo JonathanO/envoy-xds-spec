@@ -1,0 +1,263 @@
+{
+  "name": "held-nack-freezes-the-stream-at-once",
+  "description": "A NACK of an earlier route response, held while the clusters await their ACK, freezes the stream at once: the change in progress goes no further (SPEC \u00a74.5).",
+  "protocols": [
+    "sotw",
+    "delta"
+  ],
+  "serves": [
+    "CDS",
+    "RDS"
+  ],
+  "envoys": [
+    {
+      "name": "envoy",
+      "view": "v"
+    }
+  ],
+  "steps": [
+    {
+      "update": [
+        {
+          "setView": "v",
+          "groups": [
+            "g"
+          ]
+        },
+        {
+          "editGroup": "g",
+          "put": {
+            "CDS": [
+              {
+                "name": "a",
+                "connectTimeout": "1s"
+              }
+            ],
+            "RDS": [
+              {
+                "name": "r",
+                "virtualHosts": [
+                  {
+                    "name": "vh",
+                    "domains": [
+                      "*"
+                    ],
+                    "routes": [
+                      {
+                        "match": {
+                          "prefix": "/"
+                        },
+                        "route": {
+                          "cluster": "a"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "request": "CDS",
+      "expect": [
+        {
+          "type": "CDS",
+          "resources": [
+            {
+              "name": "a",
+              "connectTimeout": "1s"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "request": "CDS",
+      "ack": "last"
+    },
+    {
+      "request": "RDS",
+      "subscribe": [
+        "r"
+      ],
+      "expect": [
+        {
+          "type": "RDS",
+          "resources": [
+            {
+              "name": "r",
+              "virtualHosts": [
+                {
+                  "name": "vh",
+                  "domains": [
+                    "*"
+                  ],
+                  "routes": [
+                    {
+                      "match": {
+                        "prefix": "/"
+                      },
+                      "route": {
+                        "cluster": "a"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "request": "RDS",
+      "ack": "last"
+    },
+    {
+      "update": [
+        {
+          "editGroup": "g",
+          "put": {
+            "RDS": [
+              {
+                "name": "r",
+                "virtualHosts": [
+                  {
+                    "name": "vh",
+                    "domains": [
+                      "*"
+                    ],
+                    "routes": [
+                      {
+                        "match": {
+                          "prefix": "/"
+                        },
+                        "route": {
+                          "cluster": "a2"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "expect": [
+        {
+          "type": "RDS",
+          "resources": [
+            {
+              "name": "r",
+              "virtualHosts": [
+                {
+                  "name": "vh",
+                  "domains": [
+                    "*"
+                  ],
+                  "routes": [
+                    {
+                      "match": {
+                        "prefix": "/"
+                      },
+                      "route": {
+                        "cluster": "a2"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "comment": "The routes move to a2"
+        }
+      ]
+    },
+    {
+      "request": "RDS",
+      "ack": "last"
+    },
+    {
+      "update": [
+        {
+          "editGroup": "g",
+          "put": {
+            "CDS": [
+              {
+                "name": "c",
+                "connectTimeout": "1s"
+              }
+            ],
+            "RDS": [
+              {
+                "name": "r",
+                "virtualHosts": [
+                  {
+                    "name": "vh",
+                    "domains": [
+                      "*"
+                    ],
+                    "routes": [
+                      {
+                        "match": {
+                          "prefix": "/"
+                        },
+                        "route": {
+                          "cluster": "c"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "expect": [
+        {
+          "type": "CDS",
+          "sotw": {
+            "resources": [
+              {
+                "name": "a",
+                "connectTimeout": "1s"
+              },
+              {
+                "name": "c",
+                "connectTimeout": "1s"
+              }
+            ]
+          },
+          "delta": {
+            "resources": [
+              {
+                "name": "c",
+                "connectTimeout": "1s"
+              }
+            ]
+          },
+          "comment": "c, and routes to it: the clusters go first"
+        }
+      ]
+    },
+    {
+      "request": "RDS",
+      "nack": "last-1",
+      "comment": "Held, as the clusters await their ACK, but freezes now"
+    },
+    {
+      "request": "CDS",
+      "ack": "last",
+      "comment": "Frozen: the routes to c never go"
+    },
+    {
+      "request": "RDS",
+      "ack": "last"
+    }
+  ]
+}

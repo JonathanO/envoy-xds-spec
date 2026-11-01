@@ -1,0 +1,105 @@
+{
+  "name": "change-waits-while-an-answer-awaits-its-ack",
+  "description": "A change doesn't start while an answer awaits its ACK (SPEC \u00a73.1).",
+  "protocols": [
+    "sotw",
+    "delta"
+  ],
+  "serves": [
+    "CDS"
+  ],
+  "envoys": [
+    {
+      "name": "envoy",
+      "view": "v"
+    }
+  ],
+  "steps": [
+    {
+      "update": [
+        {
+          "setView": "v",
+          "groups": [
+            "g"
+          ]
+        },
+        {
+          "editGroup": "g",
+          "put": {
+            "CDS": [
+              {
+                "name": "a",
+                "connectTimeout": "1s"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "request": "CDS",
+      "expect": [
+        {
+          "type": "CDS",
+          "resources": [
+            {
+              "name": "a",
+              "connectTimeout": "1s"
+            }
+          ],
+          "comment": "Not ACKed"
+        }
+      ]
+    },
+    {
+      "update": [
+        {
+          "editGroup": "g",
+          "put": {
+            "CDS": [
+              {
+                "name": "b",
+                "connectTimeout": "1s"
+              }
+            ]
+          }
+        }
+      ],
+      "comment": "Waits for the answer's ACK"
+    },
+    {
+      "request": "CDS",
+      "ack": "last",
+      "expect": [
+        {
+          "type": "CDS",
+          "sotw": {
+            "resources": [
+              {
+                "name": "a",
+                "connectTimeout": "1s"
+              },
+              {
+                "name": "b",
+                "connectTimeout": "1s"
+              }
+            ]
+          },
+          "delta": {
+            "resources": [
+              {
+                "name": "b",
+                "connectTimeout": "1s"
+              }
+            ]
+          },
+          "comment": "Then goes"
+        }
+      ]
+    },
+    {
+      "request": "CDS",
+      "ack": "last"
+    }
+  ]
+}

@@ -1,0 +1,228 @@
+{
+  "name": "sotw-reconnect-loses-a-kept-cluster-with-the-first-cds-answer",
+  "description": "On SotW a port can't know what a reconnecting Envoy kept, so a cluster that's gone goes with the first CDS answer, while a route Envoy kept may still use it (SPEC \u00a76.4).",
+  "protocols": [
+    "sotw"
+  ],
+  "serves": [
+    "CDS",
+    "RDS"
+  ],
+  "envoys": [
+    {
+      "name": "envoy",
+      "view": "v"
+    }
+  ],
+  "steps": [
+    {
+      "update": [
+        {
+          "setView": "v",
+          "groups": [
+            "g"
+          ]
+        },
+        {
+          "editGroup": "g",
+          "put": {
+            "CDS": [
+              {
+                "name": "a",
+                "connectTimeout": "1s"
+              }
+            ],
+            "RDS": [
+              {
+                "name": "r",
+                "virtualHosts": [
+                  {
+                    "name": "vh",
+                    "domains": [
+                      "*"
+                    ],
+                    "routes": [
+                      {
+                        "match": {
+                          "prefix": "/"
+                        },
+                        "route": {
+                          "cluster": "a"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "request": "CDS",
+      "expect": [
+        {
+          "type": "CDS",
+          "resources": [
+            {
+              "name": "a",
+              "connectTimeout": "1s"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "request": "CDS",
+      "ack": "last"
+    },
+    {
+      "request": "RDS",
+      "subscribe": [
+        "r"
+      ],
+      "expect": [
+        {
+          "type": "RDS",
+          "resources": [
+            {
+              "name": "r",
+              "virtualHosts": [
+                {
+                  "name": "vh",
+                  "domains": [
+                    "*"
+                  ],
+                  "routes": [
+                    {
+                      "match": {
+                        "prefix": "/"
+                      },
+                      "route": {
+                        "cluster": "a"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "request": "RDS",
+      "ack": "last"
+    },
+    {
+      "disconnect": "envoy",
+      "comment": "Envoy keeps a, and r routing to a"
+    },
+    {
+      "update": [
+        {
+          "editGroup": "g",
+          "remove": {
+            "CDS": [
+              "a"
+            ]
+          }
+        },
+        {
+          "editGroup": "g",
+          "put": {
+            "CDS": [
+              {
+                "name": "b",
+                "connectTimeout": "1s"
+              }
+            ],
+            "RDS": [
+              {
+                "name": "r",
+                "virtualHosts": [
+                  {
+                    "name": "vh",
+                    "domains": [
+                      "*"
+                    ],
+                    "routes": [
+                      {
+                        "match": {
+                          "prefix": "/"
+                        },
+                        "route": {
+                          "cluster": "b"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "comment": "While it's away, r moves to b and a goes"
+    },
+    {
+      "request": "CDS",
+      "expect": [
+        {
+          "type": "CDS",
+          "resources": [
+            {
+              "name": "b",
+              "connectTimeout": "1s"
+            }
+          ],
+          "comment": "a is gone, though Envoy's kept r still routes to it"
+        }
+      ]
+    },
+    {
+      "request": "RDS",
+      "subscribe": [
+        "r"
+      ],
+      "comment": "Held for the CDS ACK (SPEC \u00a74.3)"
+    },
+    {
+      "request": "CDS",
+      "ack": "last",
+      "expect": [
+        {
+          "type": "RDS",
+          "resources": [
+            {
+              "name": "r",
+              "virtualHosts": [
+                {
+                  "name": "vh",
+                  "domains": [
+                    "*"
+                  ],
+                  "routes": [
+                    {
+                      "match": {
+                        "prefix": "/"
+                      },
+                      "route": {
+                        "cluster": "b"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "request": "RDS",
+      "ack": "last"
+    }
+  ]
+}

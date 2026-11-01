@@ -1,0 +1,48 @@
+{
+  "name": "delta-delay-updates-until-ack-of-does-not-hold-stale-removals",
+  "description": "delayUpdatesUntilAckOf holds changes, not stale removals: a stale listener goes with the answer, before any RDS ACK (SPEC \u00a73.2).",
+  "protocols": [
+    "delta"
+  ],
+  "serves": [
+    "LDS",
+    "RDS"
+  ],
+  "envoys": [
+    {
+      "name": "envoy",
+      "view": "v",
+      "delayUpdatesUntilAckOf": "RDS"
+    }
+  ],
+  "steps": [
+    {
+      "update": [
+        {
+          "setView": "v",
+          "groups": [
+            "g"
+          ]
+        }
+      ]
+    },
+    {
+      "request": "LDS",
+      "kept": [
+        "stale"
+      ],
+      "expect": [
+        {
+          "type": "LDS",
+          "removed": [
+            "stale"
+          ]
+        }
+      ]
+    },
+    {
+      "request": "LDS",
+      "ack": "last"
+    }
+  ]
+}

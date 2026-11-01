@@ -1,0 +1,96 @@
+{
+  "name": "sotw-request-with-an-older-version-is-not-an-ack",
+  "description": "A SotW request with the latest nonce but an older version, and no error_detail, isn't an ACK: the type still awaits one (SPEC \u00a77.1).",
+  "protocols": [
+    "sotw"
+  ],
+  "serves": [
+    "CDS"
+  ],
+  "envoys": [
+    {
+      "name": "envoy",
+      "view": "v"
+    }
+  ],
+  "steps": [
+    {
+      "update": [
+        {
+          "setView": "v",
+          "groups": [
+            "g"
+          ]
+        },
+        {
+          "editGroup": "g",
+          "put": {
+            "CDS": [
+              {
+                "name": "a",
+                "connectTimeout": "1s"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "request": "CDS",
+      "expect": [
+        {
+          "type": "CDS",
+          "resources": [
+            {
+              "name": "a",
+              "connectTimeout": "1s"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "request": "CDS",
+      "comment": "The latest nonce, but the version Envoy last ACKed: none"
+    },
+    {
+      "update": [
+        {
+          "editGroup": "g",
+          "put": {
+            "CDS": [
+              {
+                "name": "b",
+                "connectTimeout": "1s"
+              }
+            ]
+          }
+        }
+      ],
+      "comment": "CDS still awaits an ACK"
+    },
+    {
+      "request": "CDS",
+      "ack": "last",
+      "expect": [
+        {
+          "type": "CDS",
+          "resources": [
+            {
+              "name": "a",
+              "connectTimeout": "1s"
+            },
+            {
+              "name": "b",
+              "connectTimeout": "1s"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "request": "CDS",
+      "ack": "last"
+    }
+  ]
+}

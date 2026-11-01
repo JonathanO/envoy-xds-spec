@@ -1,0 +1,93 @@
+{
+  "name": "delta-change-does-not-wait-for-stale-removals-that-may-not-go-yet",
+  "description": "A change doesn't wait for stale removals that may not go yet: here, one waiting for LDS, which this Envoy hasn't asked for (SPEC \u00a73.1).",
+  "protocols": [
+    "delta"
+  ],
+  "serves": [
+    "CDS",
+    "LDS"
+  ],
+  "envoys": [
+    {
+      "name": "envoy",
+      "view": "v"
+    }
+  ],
+  "steps": [
+    {
+      "update": [
+        {
+          "setView": "v",
+          "groups": [
+            "g"
+          ]
+        },
+        {
+          "editGroup": "g",
+          "put": {
+            "CDS": [
+              {
+                "name": "a",
+                "connectTimeout": "1s"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "request": "CDS",
+      "kept": [
+        "stale"
+      ],
+      "expect": [
+        {
+          "type": "CDS",
+          "resources": [
+            {
+              "name": "a",
+              "connectTimeout": "1s"
+            }
+          ],
+          "comment": "stale waits for LDS"
+        }
+      ]
+    },
+    {
+      "request": "CDS",
+      "ack": "last"
+    },
+    {
+      "update": [
+        {
+          "editGroup": "g",
+          "put": {
+            "CDS": [
+              {
+                "name": "b",
+                "connectTimeout": "1s"
+              }
+            ]
+          }
+        }
+      ],
+      "expect": [
+        {
+          "type": "CDS",
+          "resources": [
+            {
+              "name": "b",
+              "connectTimeout": "1s"
+            }
+          ],
+          "comment": "Goes, though stale still waits"
+        }
+      ]
+    },
+    {
+      "request": "CDS",
+      "ack": "last"
+    }
+  ]
+}

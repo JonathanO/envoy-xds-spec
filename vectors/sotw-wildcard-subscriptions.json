@@ -1,0 +1,121 @@
+{
+  "name": "sotw-wildcard-subscriptions",
+  "description": "On SotW, * subscribes to everything and keeps the names listed with it; leaving it drops what's not listed, unanswered; an empty list after names means no names (SPEC \u00a74.9).",
+  "protocols": [
+    "sotw"
+  ],
+  "serves": [
+    "CDS"
+  ],
+  "envoys": [
+    {
+      "name": "envoy",
+      "view": "v"
+    }
+  ],
+  "steps": [
+    {
+      "update": [
+        {
+          "setView": "v",
+          "groups": [
+            "g"
+          ]
+        },
+        {
+          "editGroup": "g",
+          "put": {
+            "CDS": [
+              {
+                "name": "a",
+                "connectTimeout": "1s"
+              },
+              {
+                "name": "b",
+                "connectTimeout": "1s"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "request": "CDS",
+      "subscribe": [
+        "a"
+      ],
+      "expect": [
+        {
+          "type": "CDS",
+          "resources": [
+            {
+              "name": "a",
+              "connectTimeout": "1s"
+            }
+          ],
+          "comment": "A first list that names something isn't a wildcard"
+        }
+      ]
+    },
+    {
+      "request": "CDS",
+      "ack": "last"
+    },
+    {
+      "request": "CDS",
+      "subscribe": [
+        "*"
+      ],
+      "expect": [
+        {
+          "type": "CDS",
+          "resources": [
+            {
+              "name": "a",
+              "connectTimeout": "1s"
+            },
+            {
+              "name": "b",
+              "connectTimeout": "1s"
+            }
+          ],
+          "comment": "Everything"
+        }
+      ]
+    },
+    {
+      "request": "CDS",
+      "ack": "last"
+    },
+    {
+      "request": "CDS",
+      "unsubscribe": [
+        "*"
+      ],
+      "comment": "Leaves the wildcard; a stays listed"
+    },
+    {
+      "request": "CDS",
+      "unsubscribe": [
+        "a"
+      ],
+      "comment": "An empty list after names: no names"
+    },
+    {
+      "update": [
+        {
+          "editGroup": "g",
+          "put": {
+            "CDS": [
+              {
+                "name": "c",
+                "connectTimeout": "1s"
+              }
+            ]
+          }
+        }
+      ],
+      "comment": "Not subscribed to c"
+    }
+  ]
+}

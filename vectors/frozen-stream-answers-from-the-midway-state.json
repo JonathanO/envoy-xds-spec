@@ -1,0 +1,193 @@
+{
+  "name": "frozen-stream-answers-from-the-midway-state",
+  "description": "A frozen stream answers a type the change left mid-way from the mid-way state, keeping what its remove round would have removed (SPEC \u00a75.2).",
+  "protocols": [
+    "sotw",
+    "delta"
+  ],
+  "serves": [
+    "CDS",
+    "EDS"
+  ],
+  "envoys": [
+    {
+      "name": "envoy",
+      "view": "v"
+    }
+  ],
+  "steps": [
+    {
+      "update": [
+        {
+          "setView": "v",
+          "groups": [
+            "g"
+          ]
+        },
+        {
+          "editGroup": "g",
+          "put": {
+            "CDS": [
+              {
+                "name": "x",
+                "connectTimeout": "1s"
+              }
+            ],
+            "EDS": [
+              {
+                "clusterName": "x",
+                "policy": {
+                  "overprovisioningFactor": 100
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "request": "CDS",
+      "expect": [
+        {
+          "type": "CDS",
+          "resources": [
+            {
+              "name": "x",
+              "connectTimeout": "1s"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "request": "CDS",
+      "ack": "last"
+    },
+    {
+      "request": "EDS",
+      "subscribe": [
+        "x"
+      ],
+      "expect": [
+        {
+          "type": "EDS",
+          "resources": [
+            {
+              "clusterName": "x",
+              "policy": {
+                "overprovisioningFactor": 100
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "request": "EDS",
+      "ack": "last"
+    },
+    {
+      "update": [
+        {
+          "editGroup": "g",
+          "remove": {
+            "CDS": [
+              "x"
+            ],
+            "EDS": [
+              "x"
+            ]
+          }
+        },
+        {
+          "editGroup": "g",
+          "put": {
+            "CDS": [
+              {
+                "name": "y",
+                "connectTimeout": "1s"
+              }
+            ],
+            "EDS": [
+              {
+                "clusterName": "y",
+                "policy": {
+                  "overprovisioningFactor": 100
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "expect": [
+        {
+          "type": "CDS",
+          "sotw": {
+            "resources": [
+              {
+                "name": "x",
+                "connectTimeout": "1s"
+              },
+              {
+                "name": "y",
+                "connectTimeout": "1s"
+              }
+            ]
+          },
+          "delta": {
+            "resources": [
+              {
+                "name": "y",
+                "connectTimeout": "1s"
+              }
+            ]
+          },
+          "comment": "Removes x and adds y"
+        }
+      ]
+    },
+    {
+      "request": "CDS",
+      "nack": "last",
+      "comment": "Freezes before x goes"
+    },
+    {
+      "request": "EDS",
+      "subscribe": [
+        "y"
+      ],
+      "expect": [
+        {
+          "type": "EDS",
+          "sotw": {
+            "resources": [
+              {
+                "clusterName": "x",
+                "policy": {
+                  "overprovisioningFactor": 100
+                }
+              },
+              {
+                "clusterName": "y",
+                "policy": {
+                  "overprovisioningFactor": 100
+                }
+              }
+            ]
+          },
+          "delta": {
+            "resources": [
+              {
+                "clusterName": "y",
+                "policy": {
+                  "overprovisioningFactor": 100
+                }
+              }
+            ]
+          },
+          "comment": "SotW keeps x; delta adds only y"
+        }
+      ]
+    }
+  ]
+}
