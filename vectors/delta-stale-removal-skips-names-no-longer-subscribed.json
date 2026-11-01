@@ -1,0 +1,126 @@
+{
+  "name": "delta-stale-removal-skips-names-no-longer-subscribed",
+  "description": "A waiting stale removal leaves out names the Envoy no longer subscribes to (SPEC \u00a76.1).",
+  "protocols": [
+    "delta"
+  ],
+  "serves": [
+    "CDS",
+    "RDS"
+  ],
+  "envoys": [
+    {
+      "name": "envoy",
+      "view": "v",
+      "subscribesTo": [
+        "CDS",
+        "RDS"
+      ]
+    }
+  ],
+  "steps": [
+    {
+      "update": [
+        {
+          "setView": "v",
+          "groups": [
+            "g"
+          ]
+        },
+        {
+          "editGroup": "g",
+          "put": {
+            "RDS": [
+              {
+                "name": "r",
+                "virtualHosts": [
+                  {
+                    "name": "vh",
+                    "domains": [
+                      "*"
+                    ],
+                    "routes": [
+                      {
+                        "match": {
+                          "prefix": "/"
+                        },
+                        "route": {
+                          "cluster": "x"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "request": "CDS",
+      "subscribe": [
+        "stale"
+      ],
+      "kept": [
+        "stale"
+      ],
+      "expect": [
+        {
+          "type": "CDS",
+          "comment": "stale waits for the routes"
+        }
+      ]
+    },
+    {
+      "request": "CDS",
+      "ack": "last"
+    },
+    {
+      "request": "CDS",
+      "unsubscribe": [
+        "stale"
+      ],
+      "comment": "Unsubscribes, unanswered"
+    },
+    {
+      "request": "RDS",
+      "subscribe": [
+        "r"
+      ],
+      "expect": [
+        {
+          "type": "RDS",
+          "resources": [
+            {
+              "name": "r",
+              "virtualHosts": [
+                {
+                  "name": "vh",
+                  "domains": [
+                    "*"
+                  ],
+                  "routes": [
+                    {
+                      "match": {
+                        "prefix": "/"
+                      },
+                      "route": {
+                        "cluster": "x"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "request": "RDS",
+      "ack": "last",
+      "comment": "Nothing to remove"
+    }
+  ]
+}

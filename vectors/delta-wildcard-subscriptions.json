@@ -1,0 +1,155 @@
+{
+  "name": "delta-wildcard-subscriptions",
+  "description": "On delta, subscribing to * answers what isn't already subscribed by name; names subscribed during the wildcard are answered; unsubscribing from * keeps the names subscribed by name (SPEC \u00a74.9).",
+  "protocols": [
+    "delta"
+  ],
+  "serves": [
+    "CDS"
+  ],
+  "envoys": [
+    {
+      "name": "envoy",
+      "view": "v"
+    }
+  ],
+  "steps": [
+    {
+      "update": [
+        {
+          "setView": "v",
+          "groups": [
+            "g"
+          ]
+        },
+        {
+          "editGroup": "g",
+          "put": {
+            "CDS": [
+              {
+                "name": "a",
+                "connectTimeout": "1s"
+              },
+              {
+                "name": "b",
+                "connectTimeout": "1s"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "request": "CDS",
+      "subscribe": [
+        "a"
+      ],
+      "expect": [
+        {
+          "type": "CDS",
+          "resources": [
+            {
+              "name": "a",
+              "connectTimeout": "1s"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "request": "CDS",
+      "ack": "last"
+    },
+    {
+      "request": "CDS",
+      "subscribe": [
+        "*"
+      ],
+      "expect": [
+        {
+          "type": "CDS",
+          "resources": [
+            {
+              "name": "b",
+              "connectTimeout": "1s"
+            }
+          ],
+          "comment": "b: a was already subscribed"
+        }
+      ]
+    },
+    {
+      "request": "CDS",
+      "ack": "last"
+    },
+    {
+      "request": "CDS",
+      "subscribe": [
+        "c"
+      ],
+      "expect": [
+        {
+          "type": "CDS",
+          "removed": [
+            "c"
+          ],
+          "comment": "Answered, as removed: c doesn't exist"
+        }
+      ]
+    },
+    {
+      "request": "CDS",
+      "ack": "last"
+    },
+    {
+      "request": "CDS",
+      "unsubscribe": [
+        "*"
+      ],
+      "comment": "Ends the wildcard, unanswered"
+    },
+    {
+      "update": [
+        {
+          "editGroup": "g",
+          "put": {
+            "CDS": [
+              {
+                "name": "b",
+                "connectTimeout": "2s"
+              }
+            ]
+          }
+        }
+      ],
+      "comment": "b is no longer subscribed to"
+    },
+    {
+      "update": [
+        {
+          "editGroup": "g",
+          "put": {
+            "CDS": [
+              {
+                "name": "a",
+                "connectTimeout": "2s"
+              }
+            ]
+          }
+        }
+      ],
+      "expect": [
+        {
+          "type": "CDS",
+          "resources": [
+            {
+              "name": "a",
+              "connectTimeout": "2s"
+            }
+          ],
+          "comment": "a still is"
+        }
+      ]
+    }
+  ]
+}

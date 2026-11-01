@@ -1,0 +1,83 @@
+{
+  "name": "delta-resubscribing-is-answered-again",
+  "description": "A delta request subscribing to a name it already has is answered again (SPEC \u00a74.6).",
+  "protocols": [
+    "delta"
+  ],
+  "serves": [
+    "EDS"
+  ],
+  "envoys": [
+    {
+      "name": "envoy",
+      "view": "v"
+    }
+  ],
+  "steps": [
+    {
+      "update": [
+        {
+          "setView": "v",
+          "groups": [
+            "g"
+          ]
+        },
+        {
+          "editGroup": "g",
+          "put": {
+            "EDS": [
+              {
+                "clusterName": "a",
+                "policy": {
+                  "overprovisioningFactor": 100
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "request": "EDS",
+      "subscribe": [
+        "a"
+      ],
+      "expect": [
+        {
+          "type": "EDS",
+          "resources": [
+            {
+              "clusterName": "a",
+              "policy": {
+                "overprovisioningFactor": 100
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "request": "EDS",
+      "ack": "last"
+    },
+    {
+      "request": "EDS",
+      "subscribe": [
+        "a"
+      ],
+      "expect": [
+        {
+          "type": "EDS",
+          "resources": [
+            {
+              "clusterName": "a",
+              "policy": {
+                "overprovisioningFactor": 100
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

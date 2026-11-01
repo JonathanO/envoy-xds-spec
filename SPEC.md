@@ -156,6 +156,12 @@ may have some of it.
 
 Example: [change-waits-for-held-requests](vectors/change-waits-for-held-requests.json).
 
+Example: [change-waits-while-an-answer-awaits-its-ack](vectors/change-waits-while-an-answer-awaits-its-ack.json).
+
+Example: [delta-change-waits-for-the-ack-of-a-stale-removal](vectors/delta-change-waits-for-the-ack-of-a-stale-removal.json).
+
+Example: [delta-change-does-not-wait-for-stale-removals-that-may-not-go-yet](vectors/delta-change-does-not-wait-for-stale-removals-that-may-not-go-yet.json).
+
 ### 3.2 `delayUpdatesUntilAckOf`
 
 A per-Envoy option, naming one type. Changes to that Envoy wait until it first ACKs an answer of that type. Answers,
@@ -166,18 +172,29 @@ initialising. RDS is the usual choice, as Envoy ACKs routes only once its cluste
 If `subscribesTo` ([§6.2](#62-subscribesto)) leaves the type out, the option is ignored, and the port logs a warning.
 Otherwise, if 30 seconds pass without that ACK, changes go anyway ([§6.3](#63-the-30-second-give-up)).
 
+Example: [delay-updates-until-ack-of-releases-changes-on-the-first-ack](vectors/delay-updates-until-ack-of-releases-changes-on-the-first-ack.json).
+
+Example: [delay-updates-until-ack-of-is-ignored-for-a-type-subscribes-to-leaves-out](vectors/delay-updates-until-ack-of-is-ignored-for-a-type-subscribes-to-leaves-out.json).
+
+Example: [delta-delay-updates-until-ack-of-does-not-hold-stale-removals](vectors/delta-delay-updates-until-ack-of-does-not-hold-stale-removals.json).
+
 ### 3.3 Waiting updates merge
 
 Updates that arrive while a change can't start wait for it. By default, in every port, waiting updates merge into one
 change, so a busy Envoy gets one change, not a queue of them, each needing its own round trips. Updates merge in the
 order they were published: the merged change goes from the oldest one's before to the newest one's after.
 
-Updates never merge across phases. An update that ends a phase takes no later update into it; the next phase waits
-behind it, and is sent only once it is complete.
+Updates never merge across phases. A later update can merge into an update's last phase, but never into an earlier
+one: each earlier phase is sent alone, and complete, before the next. A `then` at the very end of an update ends
+nothing, as it would start an empty phase (§2.3).
 
 A port sends whatever an update makes, even if it is the same as what the stream has. Leaving out updates that change
 nothing is the config source's job, which the snapshot model does: an update that changes no Envoy's view reaches no
 Envoy (§2.4).
+
+Example: [updates-during-a-change-merge-into-one](vectors/updates-during-a-change-merge-into-one.json).
+
+Example: [updates-never-merge-into-an-earlier-phase](vectors/updates-never-merge-into-an-earlier-phase.json).
 
 Seen with Envoy, in the [conformance suite](conformance/README.md#conformance-suite-for-xds-libraries): `churns`.
 
@@ -197,6 +214,8 @@ An answer isn't part of a change. A change under way carries on while an answer 
 starts until every answer is ACKed (§3.1).
 
 Example: [route-requests-wait-for-the-clusters-ack](vectors/route-requests-wait-for-the-clusters-ack.json).
+
+Example: [an-update-still-waiting-is-not-in-answers](vectors/an-update-still-waiting-is-not-in-answers.json).
 
 ### 4.2 Answers mid-change
 
@@ -250,10 +269,18 @@ If a request of a type is held, every later request of that type is held behind 
 Each request of a type follows on from the one before: on delta, its subscribe and unsubscribe lists change the last
 set; on SotW, its nonce must be the latest. Handling them out of order would get the subscriptions wrong.
 
+No vector shows this, and none can: under the other rules a type never awaits an ACK while a request of its type is
+held, so a later request of that type would be held anyway. A request is held only if its type isn't awaiting an ACK
+(§4.3), and its type sends nothing while it is held: its answers are held too, stale removals wait for held requests
+(§6.1), and its round of a change comes only once the clusters are no longer pending, which is when held requests are
+handled. The rule keeps the order should any of that change.
+
 ### 4.5 A held NACK freezes at once
 
 A NACK is held like any other request of its type. But it freezes the stream (§5.1) as soon as it arrives. Only the
 rest of it, such as its subscription changes, waits its turn.
+
+Example: [held-nack-freezes-the-stream-at-once](vectors/held-nack-freezes-the-stream-at-once.json).
 
 ### 4.6 Every subscription is answered
 
@@ -265,6 +292,8 @@ A delta request that subscribes to names Envoy is already subscribed to is answe
 
 Example: [change-goes-out-in-add-order-then-remove-order](vectors/change-goes-out-in-add-order-then-remove-order.json).
 
+Example: [delta-resubscribing-is-answered-again](vectors/delta-resubscribing-is-answered-again.json).
+
 Seen with Envoy, in the [conformance suite](conformance/README.md#conformance-suite-for-xds-libraries): `startsEmpty`,
 `onDemandClusters`, `onDemandScopes`.
 
@@ -275,6 +304,8 @@ empty answer would only hold up changes until Envoy ACKed it. On SotW, a request
 answered, and later responses of the type leave those names out.
 
 A SotW request whose list is the same as the last one changes nothing, so is not answered either.
+
+Example: [unsubscribing-gets-no-answer](vectors/unsubscribing-gets-no-answer.json).
 
 ### 4.8 Stale nonces
 
@@ -316,6 +347,10 @@ On delta, each request subscribes to and unsubscribes from names:
 
 Example: [sotw-first-wildcard-request-keeps-what-its-remove-round-removes](vectors/sotw-first-wildcard-request-keeps-what-its-remove-round-removes.json).
 
+Example: [sotw-wildcard-subscriptions](vectors/sotw-wildcard-subscriptions.json).
+
+Example: [delta-wildcard-subscriptions](vectors/delta-wildcard-subscriptions.json).
+
 Seen with Envoy, in the [conformance suite](conformance/README.md#conformance-suite-for-xds-libraries):
 `onDemandVirtualHosts`.
 
@@ -339,6 +374,8 @@ A stream that fails ends with a gRPC status that says whose fault it was:
 - When the user's lookup of an Envoy's options (§3.2, §6.2) fails with a gRPC status, that status, as it is. Any
   other failure there is `INTERNAL`, as above.
 
+Example: [a-type-not-served-is-answered-with-nothing](vectors/a-type-not-served-is-answered-with-nothing.json).
+
 ## 5. NACKs and freezing
 
 ### 5.1 A NACK freezes the stream
@@ -360,6 +397,8 @@ whatever part Envoy took. Closing the stream would have Envoy reconnect straight
 
 Example: [nack-freezes-the-stream](vectors/nack-freezes-the-stream.json).
 
+Example: [delta-nack-stops-stale-removals-still-waiting](vectors/delta-nack-stops-stale-removals-still-waiting.json).
+
 Seen with Envoy, in the [conformance suite](conformance/README.md#conformance-suite-for-xds-libraries):
 `containsRejectedConfig`.
 
@@ -373,6 +412,8 @@ On SotW each answer is the whole set, so an answer of the type Envoy rejected re
 it again, and keeps what it has.
 
 Example: [nack-freezes-the-stream](vectors/nack-freezes-the-stream.json).
+
+Example: [frozen-stream-answers-from-the-midway-state](vectors/frozen-stream-answers-from-the-midway-state.json).
 
 ### 5.3 Resync
 
@@ -419,6 +460,10 @@ Example: [delta-stale-removals-go-in-remove-order](vectors/delta-stale-removals-
 
 Example: [delta-stale-name-answered-since-is-removed-once](vectors/delta-stale-name-answered-since-is-removed-once.json).
 
+Example: [delta-stale-removal-skips-names-no-longer-subscribed](vectors/delta-stale-removal-skips-names-no-longer-subscribed.json).
+
+Example: [delta-kept-resource-that-still-exists-is-sent-again](vectors/delta-kept-resource-that-still-exists-is-sent-again.json).
+
 Seen with Envoy, in the [conformance suite](conformance/README.md#conformance-suite-for-xds-libraries): `reconnects`,
 `changesWhileDisconnected`, `controlPlaneRestarts`.
 
@@ -459,6 +504,8 @@ SotW has no `initial_resource_versions`, so a port can't know what a reconnectin
 whole set, and replaces what Envoy has. So a cluster Envoy kept that the config no longer has goes with the first CDS
 answer, even while a route Envoy kept still uses it. Prefer delta.
 
+Example: [sotw-reconnect-loses-a-kept-cluster-with-the-first-cds-answer](vectors/sotw-reconnect-loses-a-kept-cluster-with-the-first-cds-answer.json).
+
 Seen with Envoy, in the [conformance suite](conformance/README.md#conformance-suite-for-xds-libraries): `reconnects`,
 `controlPlaneRestarts`.
 
@@ -476,6 +523,8 @@ Seen with Envoy, in the [conformance suite](conformance/README.md#conformance-su
 - On delta, a request answering the latest response is an ACK, or a NACK with `error_detail`. A request with any other
   nonce, or none, answers nothing (§4.8).
 - On delta, each resource in a response carries a version.
+
+Example: [sotw-request-with-an-older-version-is-not-an-ack](vectors/sotw-request-with-an-older-version-is-not-an-ack.json).
 
 ### 7.2 What is left to each port
 
@@ -500,29 +549,7 @@ These are the deliberate differences between ports. Each is checked against ever
 |---|---|---|
 | go | Each stream does its work on its own goroutine; the snapshot source delivers updates into a per-stream mailbox that never blocks. | Goroutines are cheap. java delivers updates on a shared pool of threads, so thousands of Envoys don't need thousands of threads, and handles requests on gRPC's threads. |
 
-## Not yet covered by a vector
+## Vectors for every rule
 
-These rules have no vector yet. This is the to-do list for new ones. Rules marked "needs the format" need something
-[docs/VECTORS.md](docs/VECTORS.md) can't yet express.
-
-- §3.1: a change waits while an answer awaits its ACK.
-- §3.1: a change waits for the ACK of a stale removal that has gone, but not for stale removals that may not go yet.
-- §3.2: `delayUpdatesUntilAckOf` releases changes on the first ACK of an answer of its type, doesn't hold stale
-  removals, and is ignored when `subscribesTo` leaves its type out.
-- §3.3: updates arriving during a change merge into one change.
-- §3.3: updates never merge across phases.
-- §4.1: an update still waiting isn't in answers.
-- §4.4: a request never overtakes a held one of its type, even an ACK.
-- §4.5: a held NACK freezes the stream at once.
-- §4.6: a delta request re-subscribing to names is answered again.
-- §4.7: a request that only unsubscribes gets no answer; a SotW request with an unchanged list gets none.
-- §4.9: SotW `*`, an empty list after names, and leaving the wildcard; delta `*` in the subscribe and unsubscribe
-  lists, and names subscribed to during a wildcard.
-- §4.10: a type that isn't served is answered with nothing.
-- §5.1: a NACK mid-change stops stale removals still waiting.
-- §5.2: a frozen stream answers a type the change left mid-way from the mid-way state, keeping what its remove round
-  would have removed.
-- §6.1: a waiting stale removal skips names no longer subscribed to.
-- §6.1: a resource Envoy kept that still exists is sent again.
-- §6.4: a SotW Envoy loses a cluster it kept with the first CDS answer.
-- §7.1: a SotW request with the latest nonce and another version, and no `error_detail`, isn't an ACK.
+Every rule here has a vector, apart from §4.4, which can't have one (it says why). A new or changed rule starts with
+its vector, as [README.md](README.md#changing-behaviour) says.

@@ -1,0 +1,154 @@
+{
+  "name": "an-update-still-waiting-is-not-in-answers",
+  "description": "Answers come from the change going out, not from an update still waiting behind it (SPEC \u00a74.1).",
+  "protocols": [
+    "sotw",
+    "delta"
+  ],
+  "serves": [
+    "CDS",
+    "EDS"
+  ],
+  "envoys": [
+    {
+      "name": "envoy",
+      "view": "v"
+    }
+  ],
+  "steps": [
+    {
+      "update": [
+        {
+          "setView": "v",
+          "groups": [
+            "g"
+          ]
+        },
+        {
+          "editGroup": "g",
+          "put": {
+            "CDS": [
+              {
+                "name": "a",
+                "connectTimeout": "1s"
+              }
+            ],
+            "EDS": [
+              {
+                "clusterName": "a",
+                "policy": {
+                  "overprovisioningFactor": 100
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "request": "CDS",
+      "expect": [
+        {
+          "type": "CDS",
+          "resources": [
+            {
+              "name": "a",
+              "connectTimeout": "1s"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "request": "CDS",
+      "ack": "last"
+    },
+    {
+      "update": [
+        {
+          "editGroup": "g",
+          "put": {
+            "CDS": [
+              {
+                "name": "b",
+                "connectTimeout": "1s"
+              }
+            ],
+            "EDS": [
+              {
+                "clusterName": "b",
+                "policy": {
+                  "overprovisioningFactor": 100
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "expect": [
+        {
+          "type": "CDS",
+          "sotw": {
+            "resources": [
+              {
+                "name": "a",
+                "connectTimeout": "1s"
+              },
+              {
+                "name": "b",
+                "connectTimeout": "1s"
+              }
+            ]
+          },
+          "delta": {
+            "resources": [
+              {
+                "name": "b",
+                "connectTimeout": "1s"
+              }
+            ]
+          },
+          "comment": "Goes out: b, and its endpoints still to come"
+        }
+      ]
+    },
+    {
+      "update": [
+        {
+          "editGroup": "g",
+          "put": {
+            "EDS": [
+              {
+                "clusterName": "a",
+                "policy": {
+                  "overprovisioningFactor": 200
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "comment": "Waits behind the change"
+    },
+    {
+      "request": "EDS",
+      "subscribe": [
+        "a"
+      ],
+      "expect": [
+        {
+          "type": "EDS",
+          "resources": [
+            {
+              "clusterName": "a",
+              "policy": {
+                "overprovisioningFactor": 100
+              }
+            }
+          ],
+          "comment": "a as it is, not as the waiting update makes it"
+        }
+      ]
+    }
+  ]
+}

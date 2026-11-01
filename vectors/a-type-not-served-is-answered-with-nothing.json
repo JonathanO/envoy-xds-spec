@@ -1,0 +1,48 @@
+{
+  "name": "a-type-not-served-is-answered-with-nothing",
+  "description": "A request for a type the port doesn't serve is answered like any other, with nothing (SPEC \u00a74.10).",
+  "protocols": [
+    "sotw",
+    "delta"
+  ],
+  "serves": [
+    "CDS"
+  ],
+  "envoys": [
+    {
+      "name": "envoy",
+      "view": "v"
+    }
+  ],
+  "steps": [
+    {
+      "update": [
+        {
+          "setView": "v",
+          "groups": [
+            "g"
+          ]
+        }
+      ]
+    },
+    {
+      "request": "EDS",
+      "subscribe": [
+        "a"
+      ],
+      "expect": [
+        {
+          "type": "EDS",
+          "sotw": {
+            "resources": []
+          },
+          "delta": {
+            "removed": [
+              "a"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

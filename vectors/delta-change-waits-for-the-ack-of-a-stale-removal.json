@@ -1,0 +1,160 @@
+{
+  "name": "delta-change-waits-for-the-ack-of-a-stale-removal",
+  "description": "A change doesn't start while a stale removal that has gone awaits its ACK (SPEC \u00a73.1).",
+  "protocols": [
+    "delta"
+  ],
+  "serves": [
+    "CDS",
+    "RDS"
+  ],
+  "envoys": [
+    {
+      "name": "envoy",
+      "view": "v",
+      "subscribesTo": [
+        "CDS",
+        "RDS"
+      ]
+    }
+  ],
+  "steps": [
+    {
+      "update": [
+        {
+          "setView": "v",
+          "groups": [
+            "g"
+          ]
+        },
+        {
+          "editGroup": "g",
+          "put": {
+            "RDS": [
+              {
+                "name": "r",
+                "virtualHosts": [
+                  {
+                    "name": "vh",
+                    "domains": [
+                      "*"
+                    ],
+                    "routes": [
+                      {
+                        "match": {
+                          "prefix": "/"
+                        },
+                        "route": {
+                          "cluster": "x"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "request": "CDS",
+      "kept": [
+        "stale"
+      ],
+      "expect": [
+        {
+          "type": "CDS",
+          "comment": "stale waits for the routes"
+        }
+      ]
+    },
+    {
+      "request": "CDS",
+      "ack": "last"
+    },
+    {
+      "request": "RDS",
+      "subscribe": [
+        "r"
+      ],
+      "expect": [
+        {
+          "type": "RDS",
+          "resources": [
+            {
+              "name": "r",
+              "virtualHosts": [
+                {
+                  "name": "vh",
+                  "domains": [
+                    "*"
+                  ],
+                  "routes": [
+                    {
+                      "match": {
+                        "prefix": "/"
+                      },
+                      "route": {
+                        "cluster": "x"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "request": "RDS",
+      "ack": "last",
+      "expect": [
+        {
+          "type": "CDS",
+          "removed": [
+            "stale"
+          ],
+          "comment": "Routes ACKed, so stale goes"
+        }
+      ]
+    },
+    {
+      "update": [
+        {
+          "editGroup": "g",
+          "put": {
+            "CDS": [
+              {
+                "name": "a",
+                "connectTimeout": "1s"
+              }
+            ]
+          }
+        }
+      ],
+      "comment": "Waits for the removal's ACK"
+    },
+    {
+      "request": "CDS",
+      "ack": "last",
+      "expect": [
+        {
+          "type": "CDS",
+          "resources": [
+            {
+              "name": "a",
+              "connectTimeout": "1s"
+            }
+          ],
+          "comment": "Then goes"
+        }
+      ]
+    },
+    {
+      "request": "CDS",
+      "ack": "last"
+    }
+  ]
+}

@@ -1,0 +1,89 @@
+{
+  "name": "unsubscribing-gets-no-answer",
+  "description": "A request that only unsubscribes gets no answer, and neither does a SotW request whose list is unchanged (SPEC \u00a74.7).",
+  "protocols": [
+    "sotw",
+    "delta"
+  ],
+  "serves": [
+    "EDS"
+  ],
+  "envoys": [
+    {
+      "name": "envoy",
+      "view": "v"
+    }
+  ],
+  "steps": [
+    {
+      "update": [
+        {
+          "setView": "v",
+          "groups": [
+            "g"
+          ]
+        },
+        {
+          "editGroup": "g",
+          "put": {
+            "EDS": [
+              {
+                "clusterName": "a",
+                "policy": {
+                  "overprovisioningFactor": 100
+                }
+              },
+              {
+                "clusterName": "b",
+                "policy": {
+                  "overprovisioningFactor": 100
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "request": "EDS",
+      "subscribe": [
+        "a",
+        "b"
+      ],
+      "expect": [
+        {
+          "type": "EDS",
+          "resources": [
+            {
+              "clusterName": "a",
+              "policy": {
+                "overprovisioningFactor": 100
+              }
+            },
+            {
+              "clusterName": "b",
+              "policy": {
+                "overprovisioningFactor": 100
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "request": "EDS",
+      "ack": "last"
+    },
+    {
+      "request": "EDS",
+      "unsubscribe": [
+        "b"
+      ],
+      "comment": "Only unsubscribes"
+    },
+    {
+      "request": "EDS",
+      "comment": "SotW: the same list again. Delta: nothing new"
+    }
+  ]
+}

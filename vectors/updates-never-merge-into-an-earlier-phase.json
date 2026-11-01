@@ -1,0 +1,227 @@
+{
+  "name": "updates-never-merge-into-an-earlier-phase",
+  "description": "A later update merges into an update's last phase, never an earlier one: the first phase goes alone (SPEC \u00a73.3).",
+  "protocols": [
+    "sotw",
+    "delta"
+  ],
+  "serves": [
+    "CDS"
+  ],
+  "envoys": [
+    {
+      "name": "envoy",
+      "view": "v"
+    }
+  ],
+  "steps": [
+    {
+      "update": [
+        {
+          "setView": "v",
+          "groups": [
+            "g"
+          ]
+        },
+        {
+          "editGroup": "g",
+          "put": {
+            "CDS": [
+              {
+                "name": "a",
+                "connectTimeout": "1s"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "request": "CDS",
+      "expect": [
+        {
+          "type": "CDS",
+          "resources": [
+            {
+              "name": "a",
+              "connectTimeout": "1s"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "request": "CDS",
+      "ack": "last"
+    },
+    {
+      "update": [
+        {
+          "editGroup": "g",
+          "put": {
+            "CDS": [
+              {
+                "name": "x",
+                "connectTimeout": "1s"
+              }
+            ]
+          }
+        }
+      ],
+      "expect": [
+        {
+          "type": "CDS",
+          "sotw": {
+            "resources": [
+              {
+                "name": "a",
+                "connectTimeout": "1s"
+              },
+              {
+                "name": "x",
+                "connectTimeout": "1s"
+              }
+            ]
+          },
+          "delta": {
+            "resources": [
+              {
+                "name": "x",
+                "connectTimeout": "1s"
+              }
+            ]
+          },
+          "comment": "Goes out"
+        }
+      ]
+    },
+    {
+      "update": [
+        {
+          "editGroup": "g",
+          "put": {
+            "CDS": [
+              {
+                "name": "b",
+                "connectTimeout": "1s"
+              }
+            ]
+          }
+        },
+        "then",
+        {
+          "editGroup": "g",
+          "put": {
+            "CDS": [
+              {
+                "name": "c",
+                "connectTimeout": "1s"
+              }
+            ]
+          }
+        }
+      ],
+      "comment": "Two phases, both waiting"
+    },
+    {
+      "update": [
+        {
+          "editGroup": "g",
+          "put": {
+            "CDS": [
+              {
+                "name": "d",
+                "connectTimeout": "1s"
+              }
+            ]
+          }
+        }
+      ],
+      "comment": "Merges into the last phase, not the first"
+    },
+    {
+      "request": "CDS",
+      "ack": "last",
+      "expect": [
+        {
+          "type": "CDS",
+          "sotw": {
+            "resources": [
+              {
+                "name": "a",
+                "connectTimeout": "1s"
+              },
+              {
+                "name": "b",
+                "connectTimeout": "1s"
+              },
+              {
+                "name": "x",
+                "connectTimeout": "1s"
+              }
+            ]
+          },
+          "delta": {
+            "resources": [
+              {
+                "name": "b",
+                "connectTimeout": "1s"
+              }
+            ]
+          },
+          "comment": "The first phase alone"
+        }
+      ]
+    },
+    {
+      "request": "CDS",
+      "ack": "last",
+      "expect": [
+        {
+          "type": "CDS",
+          "sotw": {
+            "resources": [
+              {
+                "name": "a",
+                "connectTimeout": "1s"
+              },
+              {
+                "name": "b",
+                "connectTimeout": "1s"
+              },
+              {
+                "name": "c",
+                "connectTimeout": "1s"
+              },
+              {
+                "name": "d",
+                "connectTimeout": "1s"
+              },
+              {
+                "name": "x",
+                "connectTimeout": "1s"
+              }
+            ]
+          },
+          "delta": {
+            "resources": [
+              {
+                "name": "c",
+                "connectTimeout": "1s"
+              },
+              {
+                "name": "d",
+                "connectTimeout": "1s"
+              }
+            ]
+          },
+          "comment": "The last phase, with the later update"
+        }
+      ]
+    },
+    {
+      "request": "CDS",
+      "ack": "last"
+    }
+  ]
+}
