@@ -19,8 +19,8 @@ import java.util.Set;
 import java.util.TreeSet;
 
 /**
- * Random trace vectors, as docs/VECTORS.md describes, that are valid as docs/REPLAY.md says: a disconnect only of an
- * Envoy with a stream, and kept names only on delta, on a type's first request of the stream. Names, groups and views
+ * Random trace vectors, as docs/VECTORS.md describes, that are valid as docs/REPLAY.md says: a disconnect or resync
+ * only of an Envoy with a stream, and kept names only on delta, on a type's first request of the stream. Names, groups and views
  * come from small sets, so steps often touch the same things.
  */
 final class VectorGenerator {
@@ -28,6 +28,8 @@ final class VectorGenerator {
     static final List<String> TYPES = List.of("CDS", "EDS", "LDS", "RDS", "SRDS", "VHDS", "SDS", "RTDS");
 
     private static final List<String> NAMES = List.of("a", "b", "c", "*");
+
+    private static final Set<String> WILDCARD_TYPES = Set.of("LDS", "CDS", "SRDS", "VHDS");
 
     private static final List<String> GROUPS = List.of("g1", "g2", "g3");
 
@@ -70,11 +72,15 @@ final class VectorGenerator {
             List<String> open = streams.keySet().stream().sorted().toList();
             if (kind <= 2) {
                 steps.add(update(tc));
-            } else if (kind == 9 && !open.isEmpty()) {
-                String envoy = tc.draw(sampledFrom(open), "disconnect");
-                streams.remove(envoy);
+            } else if (kind == 8 && tc.generateBoolean(0.5)) {
                 JsonObject step = new JsonObject();
-                step.addProperty("disconnect", envoy);
+                step.addProperty("advance", tc.draw(sampledFrom("1s", "10s", "29s", "30s"), "advance"));
+                steps.add(step);
+            } else if (kind == 9 && !open.isEmpty()) {
+                String envoy = tc.draw(sampledFrom(open), "envoy");
+                streams.remove(envoy); // either way, its next request opens a new stream
+                JsonObject step = new JsonObject();
+                step.addProperty(tc.generateBoolean(0.3) ? "resync" : "disconnect", envoy);
                 steps.add(step);
             } else {
                 steps.add(request(tc, protocol, envoyCount, served, streams));
@@ -151,6 +157,15 @@ final class VectorGenerator {
     private static JsonObject request(TestCase tc, String protocol, int envoyCount, List<String> served,
                                       Map<String, Set<String>> streams) {
         String envoy = "e" + tc.draw(integers().min(1).max(envoyCount), "envoy");
+        if (tc.generateBoolean(0.03)) {
+            // A type URL that isn't one of the eight: no port serves it (SPEC §4.10).
+            JsonObject step = new JsonObject();
+            step.addProperty("request", "type.googleapis.com/envoy.config.unknown.v3.Thing");
+            step.addProperty("envoy", envoy);
+            step.add("subscribe", array(new TreeSet<>(tc.draw(sets(sampledFrom(NAMES)), "subscribe"))));
+            streams.computeIfAbsent(envoy, e -> new HashSet<>());
+            return step;
+        }
         // Mostly served types, where the rules have something to work on.
         String type = tc.draw(sampledFrom(tc.generateBoolean(0.8) ? served : TYPES), "type");
         JsonObject step = new JsonObject();
@@ -158,10 +173,13 @@ final class VectorGenerator {
         step.addProperty("envoy", envoy);
         Set<String> subscribe = tc.draw(sets(sampledFrom(NAMES)), "subscribe");
         Set<String> unsubscribe = new TreeSet<>(tc.draw(sets(sampledFrom(NAMES)), "unsubscribe"));
+        // On delta, a name in both fails the stream (SPEC §4.10), so only sometimes. * may be in both on a wildcard type;
+        // on any other type it's a name like any other.
+        boolean wildcard = WILDCARD_TYPES.contains(type);
         if (!tc.generateBoolean(0.05)) {
-            // A name in both fails the stream, so only sometimes. The wildcard may be in both.
-            unsubscribe.removeIf(n -> !n.equals("*") && subscribe.contains(n));
+            unsubscribe.removeIf(n -> !(wildcard && n.equals("*")) && subscribe.contains(n));
         }
+        boolean fails = protocol.equals("delta") && unsubscribe.stream().anyMatch(n -> !(wildcard && n.equals("*")) && subscribe.contains(n));
         if (!subscribe.isEmpty()) {
             step.add("subscribe", array(new TreeSet<>(subscribe)));
         }
@@ -181,6 +199,9 @@ final class VectorGenerator {
             step.add("kept", array(new TreeSet<>(tc.draw(sets(sampledFrom(NAMES.subList(0, 3))).minSize(1), "kept"))));
         }
         asked.add(type);
+        if (fails) {
+            streams.remove(envoy); // the server ends the stream, so its next request opens a new one
+        }
         return step;
     }
 
