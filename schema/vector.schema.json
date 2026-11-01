@@ -61,6 +61,25 @@
       "description": "An xDS type, by its discovery service's name.",
       "enum": ["LDS", "RDS", "SRDS", "VHDS", "CDS", "EDS", "SDS", "RTDS"]
     },
+    "requestType": {
+      "description": "One of the eight types, or any other type URL, which no port serves.",
+      "oneOf": [{"$ref": "#/$defs/type"}, {"type": "string", "pattern": "^type\\.googleapis\\.com/.+$"}]
+    },
+    "ended": {
+      "description": "The server ended the Envoy's stream, with this gRPC status code. Its next request opens a new stream.",
+      "type": "object",
+      "required": ["ended"],
+      "additionalProperties": false,
+      "properties": {
+        "ended": {
+          "enum": ["OK", "CANCELLED", "UNKNOWN", "INVALID_ARGUMENT", "DEADLINE_EXCEEDED", "NOT_FOUND", "ALREADY_EXISTS",
+            "PERMISSION_DENIED", "RESOURCE_EXHAUSTED", "FAILED_PRECONDITION", "ABORTED", "OUT_OF_RANGE", "UNIMPLEMENTED",
+            "INTERNAL", "UNAVAILABLE", "DATA_LOSS", "UNAUTHENTICATED"]
+        },
+        "envoy": {"description": "Which Envoy's stream. Needed only when there are several.", "type": "string"},
+        "comment": {"$ref": "#/$defs/comment"}
+      }
+    },
     "label": {
       "description": "A name given to a response with \"as\".",
       "type": "string",
@@ -110,13 +129,15 @@
       "oneOf": [
         {"$ref": "#/$defs/update"},
         {"$ref": "#/$defs/request"},
-        {"$ref": "#/$defs/disconnect"}
+        {"$ref": "#/$defs/disconnect"},
+        {"$ref": "#/$defs/advance"},
+        {"$ref": "#/$defs/resync"}
       ]
     },
     "expect": {
       "description": "The responses each Envoy gets during the step, in order. Omitted or empty: none.",
       "type": "array",
-      "items": {"$ref": "#/$defs/response"}
+      "items": {"oneOf": [{"$ref": "#/$defs/response"}, {"$ref": "#/$defs/ended"}]}
     },
     "update": {
       "description": "One SnapshotSource update.",
@@ -188,7 +209,7 @@
       "additionalProperties": false,
       "not": {"required": ["ack", "nack"]},
       "properties": {
-        "request": {"$ref": "#/$defs/type"},
+        "request": {"$ref": "#/$defs/requestType"},
         "envoy": {"description": "Which Envoy sends it. Needed only when there are several.", "type": "string"},
         "subscribe": {"$ref": "#/$defs/names"},
         "unsubscribe": {"$ref": "#/$defs/names"},
@@ -209,6 +230,27 @@
       "additionalProperties": false,
       "properties": {
         "disconnect": {"type": "string", "minLength": 1},
+        "comment": {"$ref": "#/$defs/comment"}
+      }
+    },
+    "resync": {
+      "description": "The user resyncs the Envoy's stream, as each port lets them: the server ends it, and the Envoy's next request opens a new one.",
+      "type": "object",
+      "required": ["resync"],
+      "additionalProperties": false,
+      "properties": {
+        "resync": {"type": "string", "minLength": 1},
+        "expect": {"$ref": "#/$defs/expect"},
+        "comment": {"$ref": "#/$defs/comment"}
+      }
+    },
+    "advance": {
+      "description": "The server's clock moves on by this many seconds. Nothing else happens, so it expects nothing.",
+      "type": "object",
+      "required": ["advance"],
+      "additionalProperties": false,
+      "properties": {
+        "advance": {"type": "string", "pattern": "^[0-9]+s$"},
         "comment": {"$ref": "#/$defs/comment"}
       }
     },

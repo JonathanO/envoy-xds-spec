@@ -362,6 +362,10 @@ Seen with Envoy, in the [conformance suite](conformance/README.md#conformance-su
 - A delta request that subscribes to and unsubscribes from the same name, other than `*` on a wildcard type, fails the
   stream with `INVALID_ARGUMENT`. The xDS spec doesn't say which should win, and either could be wrong.
 
+Example: [unknown-type-url-is-left-unanswered](vectors/unknown-type-url-is-left-unanswered.json).
+
+Example: [delta-subscribing-to-and-unsubscribing-from-one-name-fails-the-stream](vectors/delta-subscribing-to-and-unsubscribing-from-one-name-fails-the-stream.json).
+
 A stream that fails ends with a gRPC status that says whose fault it was:
 
 - `INVALID_ARGUMENT` for a bad request, as above.
@@ -417,6 +421,8 @@ A frozen stream stays frozen until it ends. Each port gives the user a way to cl
 reconnects, and its new stream syncs from scratch with the config as it is now. Requests on the old stream after that
 are ignored. Each port also offers a helper that does this a while after a NACK, waiting longer each time the same
 Envoy NACKs again.
+
+Example: [resync-ends-the-stream-and-envoy-syncs-afresh](vectors/resync-ends-the-stream-and-envoy-syncs-afresh.json).
 
 Seen with Envoy, in the [conformance suite](conformance/README.md#conformance-suite-for-xds-libraries):
 `containsRejectedConfig`.
@@ -488,6 +494,10 @@ or an update. The wait is checked only then. Once stale removals have waited too
 from then on no stale removal on that stream waits.
 Once `delayUpdatesUntilAckOf` has waited too long, the port logs a warning, and changes go.
 
+Example: [delta-stale-removals-give-up-waiting-after-30-seconds](vectors/delta-stale-removals-give-up-waiting-after-30-seconds.json).
+
+Example: [delay-updates-until-ack-of-gives-up-after-30-seconds](vectors/delay-updates-until-ack-of-gives-up-after-30-seconds.json).
+
 ### 6.4 SotW
 
 SotW has no `initial_resource_versions`, so a port can't know what a reconnecting Envoy kept. Each SotW answer is the
@@ -539,13 +549,7 @@ These are the deliberate differences between ports. Each is checked against ever
 |---|---|---|
 | go | Each stream does its work on its own goroutine; the snapshot source delivers updates into a per-stream mailbox that never blocks. | Goroutines are cheap. java delivers updates on a shared pool of threads, so thousands of Envoys don't need thousands of threads, and handles requests on gRPC's threads. |
 
-## Not yet covered by a vector
+## Vectors for every rule
 
-These rules have no vector yet. This is the to-do list for new ones. Rules marked "needs the format" need something
-[docs/VECTORS.md](docs/VECTORS.md) can't yet express.
-
-- §4.10: an unknown type URL is left unanswered (needs the format: vectors name only the eight types).
-- §4.10: subscribing to and unsubscribing from one name fails the stream with `INVALID_ARGUMENT` (needs the format: a
-  step can't expect a stream to fail).
-- §5.3: resync (needs the format: a step for the user closing a stream).
-- §6.3: the 30 second give-ups, for stale removals and `delayUpdatesUntilAckOf` (needs the format: time).
+Every rule here has a vector, apart from §4.4, which can't have one (it says why). A new or changed rule starts with
+its vector, as [README.md](README.md#changing-behaviour) says.

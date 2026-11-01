@@ -1,0 +1,36 @@
+{
+  "name": "resync-ends-the-stream-and-envoy-syncs-afresh",
+  "description": "A frozen stream gets no more changes until the user resyncs it: the server ends it cleanly, and Envoy's new stream syncs from scratch with the config as it is now.",
+  "protocols": ["sotw", "delta"],
+  "serves": ["CDS"],
+  "envoys": [{"name": "envoy", "view": "v"}],
+  "steps": [
+    {"update": [{"setView": "v", "groups": ["g"]}, {"editGroup": "g", "put": {"CDS": [{"name": "a", "connectTimeout": "1s"}]}}]},
+    {"request": "CDS", "expect": [{"type": "CDS", "resources": [{"name": "a", "connectTimeout": "1s"}]}]},
+    {"request": "CDS", "ack": "last"},
+    {
+      "update": [{"editGroup": "g", "put": {"CDS": [{"name": "b", "connectTimeout": "1s"}]}}],
+      "expect": [
+        {
+          "type": "CDS",
+          "sotw": {"resources": [{"name": "a", "connectTimeout": "1s"}, {"name": "b", "connectTimeout": "1s"}]},
+          "delta": {"resources": [{"name": "b", "connectTimeout": "1s"}]}
+        }
+      ]
+    },
+    {"request": "CDS", "nack": "last", "comment": "Freezes"},
+    {"update": [{"editGroup": "g", "put": {"CDS": [{"name": "c", "connectTimeout": "1s"}]}}], "comment": "Frozen: not sent"},
+    {"resync": "envoy", "expect": [{"ended": "OK"}]},
+    {
+      "request": "CDS",
+      "comment": "A new stream, synced from the config as it is now",
+      "expect": [
+        {
+          "type": "CDS",
+          "resources": [{"name": "a", "connectTimeout": "1s"}, {"name": "b", "connectTimeout": "1s"}, {"name": "c", "connectTimeout": "1s"}]
+        }
+      ]
+    },
+    {"request": "CDS", "ack": "last"}
+  ]
+}

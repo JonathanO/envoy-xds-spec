@@ -1,0 +1,12 @@
+{
+  "name": "delta-subscribing-to-and-unsubscribing-from-one-name-fails-the-stream",
+  "description": "A delta request that subscribes to and unsubscribes from the same name fails the stream with INVALID_ARGUMENT: the xDS spec doesn't say which should win. Envoy's next request opens a new stream.",
+  "protocols": ["delta"],
+  "serves": ["CDS"],
+  "envoys": [{"name": "envoy", "view": "v"}],
+  "steps": [
+    {"update": [{"setView": "v", "groups": ["g"]}, {"editGroup": "g", "put": {"CDS": [{"name": "a", "connectTimeout": "1s"}]}}]},
+    {"request": "CDS", "subscribe": ["a"], "unsubscribe": ["a"], "expect": [{"ended": "INVALID_ARGUMENT"}]},
+    {"request": "CDS", "comment": "A new stream", "expect": [{"type": "CDS", "resources": [{"name": "a", "connectTimeout": "1s"}]}]}
+  ]
+}

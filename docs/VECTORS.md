@@ -100,7 +100,7 @@ sent. Then it checks the step's `expect`: the responses each Envoy got during th
 `expect`, or with an empty one, expects no response at all. Every response is accounted for: one the step doesn't
 expect fails the vector.
 
-There are three kinds of step.
+There are five kinds of step.
 
 ### `update`: a config change
 
@@ -128,7 +128,7 @@ An update before any Envoy connects sets up the config, and expects nothing.
 
 | Field | |
 |---|---|
-| `request` | The request's type. |
+| `request` | The request's type: one of the eight, or any other type URL, such as `type.googleapis.com/an.Unknown`, which no port serves. |
 | `subscribe`, `unsubscribe` | Names the Envoy starts or stops wanting. A type's first request with neither, on a wildcard type, is a wildcard subscription. `*` is a name like any other. |
 | `ack` or `nack` | The response it answers, accepting or rejecting it: `"last"`, the last response of this type on the Envoy's stream, `"last-1"` the one before it (and so on), or a label (see below). Not both. |
 | `kept` | Delta only: names the Envoy kept from an earlier stream, sent in `initial_resource_versions`. |
@@ -164,6 +164,26 @@ request is its config's (`set_node_on_first_message_only`), and the ports read i
 The Envoy's next request opens a new stream, and is its first: it has the node, and the Envoy has no last responses
 and wants no names. Pair it with `kept` to play an Envoy reconnecting with the config it kept.
 
+### `resync`: the user resyncs a stream
+
+```json
+{"resync": "envoy", "expect": [{"ended": "OK"}]}
+```
+
+The user asks the port to resync the Envoy's stream, as each port lets them (SPEC §5.3): the server ends it, and the
+Envoy's next request opens a new stream, as after a `disconnect`. Pair it with `kept` to play Envoy reconnecting with
+the config it has.
+
+### `advance`: time passes
+
+```json
+{"advance": "30s"}
+```
+
+The server's clock moves on by that many whole seconds. Each run starts its clock at zero, and it moves only on this
+step, so a run takes no real time. Ports have no timers (SPEC §6.3), so the step itself sends nothing: what time
+changes shows on the next request or update.
+
 ## Expected responses
 
 ```json
@@ -179,8 +199,11 @@ and wants no names. Pair it with `kept` to play an Envoy reconnecting with the c
 | `as` | Optional: a label for this response, unique in the vector. |
 | `envoy` | Which Envoy gets it: needed only when there are several and the step doesn't say. A request's responses go to its Envoy. |
 
+When the server ends an Envoy's stream, the step expects `{"ended": "INVALID_ARGUMENT"}` there instead of a
+response: the gRPC status code it ended with, `OK` if it ended cleanly. The Envoy's next request opens a new stream.
+
 Resources are compared as a set, by name and content: the same names, and each resource equal, as a protobuf message,
-to the one expected. Order doesn't count, on either protocol: ports order SotW responses differently, on purpose.
+to the one expected. Order doesn't count, on either protocol.
 Removed names are compared as a set too. Versions and nonces aren't compared at all.
 
 A vector that runs on both protocols says where they differ with `sotw` and `delta`:
@@ -227,7 +250,5 @@ A failure says which vector, protocol and step, what each Envoy was expected to 
 
 ## Not yet in the format
 
-- **Time.** The 30 second give-ups need a clock a runner can control. A later version will add an `advance` step,
-  such as `{"advance": "30s"}`; a runner that meets a step it doesn't know fails the vector.
 - **Events and metrics.** Vectors see only what Envoy sees.
 - **Versions in `kept`.** See the delta request rules above.
