@@ -39,9 +39,7 @@ To fix one:
 
 Vectors with one or two Envoys, on one protocol, over a few names (`a`, `b`, `c` and `*`), three groups and two
 views, with steps chosen at random: updates (views, group edits and replacements, removals, phases), requests
-(subscribing, unsubscribing, ACKing or NACKing the last response or the one before it, and on delta what a
-reconnecting Envoy kept), and
-disconnects. Each resource is one of two variants, so a put may change it or not. Hegel steers towards vectors that
-make the ports send more.
+(subscribing, unsubscribing, ACKing or NACKing the last response or the one before it, on delta what a reconnecting
+Envoy kept, and now and then a type URL no port serves), time passing, resyncs and disconnects. Each resource is one
+of two variants, so a put may change it or not. Hegel steers towards vectors that make the ports send more.
 
-Time isn't in the format, so it doesn't reach the 30 second give-ups (§6.3).
