@@ -443,6 +443,10 @@ or an update. The wait is checked only then. Once stale removals have waited too
 from then on no stale removal on that stream waits.
 Once `delayUpdatesUntilAckOf` has waited too long, the port logs a warning, and changes go.
 
+Example: [delta-stale-removals-give-up-waiting-after-30-seconds](vectors/delta-stale-removals-give-up-waiting-after-30-seconds.json).
+
+Example: [delay-updates-until-ack-of-gives-up-after-30-seconds](vectors/delay-updates-until-ack-of-gives-up-after-30-seconds.json).
+
 ### 6.4 SotW
 
 SotW has no `initial_resource_versions`, so a port can't know what a reconnecting Envoy kept. Each SotW answer is the
@@ -497,8 +501,8 @@ These rules have no vector yet. This is the to-do list for new ones. Rules marke
 
 - §3.1: a change waits while an answer awaits its ACK.
 - §3.1: a change waits for the ACK of a stale removal that has gone, but not for stale removals that may not go yet.
-- §3.2: `delayUpdatesUntilAckOf` holds changes until the first ACK of an answer of its type, but not answers or stale
-  removals; and is ignored when `subscribesTo` leaves its type out.
+- §3.2: `delayUpdatesUntilAckOf` releases changes on the first ACK of an answer of its type, doesn't hold stale
+  removals, and is ignored when `subscribesTo` leaves its type out.
 - §3.3: updates arriving during a change merge into one change.
 - §3.3: updates never merge across phases.
 - §4.1: an update still waiting isn't in answers.
@@ -518,6 +522,5 @@ These rules have no vector yet. This is the to-do list for new ones. Rules marke
 - §5.3: resync (needs the format: a step for the user closing a stream).
 - §6.1: a waiting stale removal skips names no longer subscribed to.
 - §6.1: a resource Envoy kept that still exists is sent again.
-- §6.3: the 30 second give-ups, for stale removals and `delayUpdatesUntilAckOf` (needs the format: time).
 - §6.4: a SotW Envoy loses a cluster it kept with the first CDS answer.
 - §7.1: a SotW request with the latest nonce and another version, and no `error_detail`, isn't an ACK.

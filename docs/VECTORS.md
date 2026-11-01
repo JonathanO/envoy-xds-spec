@@ -100,7 +100,7 @@ sent. Then it checks the step's `expect`: the responses each Envoy got during th
 `expect`, or with an empty one, expects no response at all. Every response is accounted for: one the step doesn't
 expect fails the vector.
 
-There are three kinds of step.
+There are four kinds of step.
 
 ### `update`: a config change
 
@@ -163,6 +163,16 @@ request is its config's (`set_node_on_first_message_only`), and the ports read i
 
 The Envoy's next request opens a new stream, and is its first: it has the node, and the Envoy has no last responses
 and wants no names. Pair it with `kept` to play an Envoy reconnecting with the config it kept.
+
+### `advance`: time passes
+
+```json
+{"advance": "30s"}
+```
+
+The server's clock moves on by that many whole seconds. Each run starts its clock at zero, and it moves only on this
+step, so a run takes no real time. Ports have no timers (SPEC §6.3), so the step itself sends nothing: what time
+changes shows on the next request or update.
 
 ## Expected responses
 
@@ -227,7 +237,5 @@ A failure says which vector, protocol and step, what each Envoy was expected to 
 
 ## Not yet in the format
 
-- **Time.** The 30 second give-ups need a clock a runner can control. A later version will add an `advance` step,
-  such as `{"advance": "30s"}`; a runner that meets a step it doesn't know fails the vector.
 - **Events and metrics.** Vectors see only what Envoy sees.
 - **Versions in `kept`.** See the delta request rules above.

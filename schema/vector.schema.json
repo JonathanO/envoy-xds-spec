@@ -110,7 +110,8 @@
       "oneOf": [
         {"$ref": "#/$defs/update"},
         {"$ref": "#/$defs/request"},
-        {"$ref": "#/$defs/disconnect"}
+        {"$ref": "#/$defs/disconnect"},
+        {"$ref": "#/$defs/advance"}
       ]
     },
     "expect": {
@@ -209,6 +210,16 @@
       "additionalProperties": false,
       "properties": {
         "disconnect": {"type": "string", "minLength": 1},
+        "comment": {"$ref": "#/$defs/comment"}
+      }
+    },
+    "advance": {
+      "description": "The server's clock moves on by this many seconds. Nothing else happens, so it expects nothing.",
+      "type": "object",
+      "required": ["advance"],
+      "additionalProperties": false,
+      "properties": {
+        "advance": {"type": "string", "pattern": "^[0-9]+s$"},
         "comment": {"$ref": "#/$defs/comment"}
       }
     },

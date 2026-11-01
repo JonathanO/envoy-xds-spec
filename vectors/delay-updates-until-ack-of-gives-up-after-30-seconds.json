@@ -1,0 +1,21 @@
+{
+  "name": "delay-updates-until-ack-of-gives-up-after-30-seconds",
+  "description": "delayUpdatesUntilAckOf holds changes, but not answers, until the Envoy ACKs that type, and gives up after 30 seconds from the stream's first request. With no timer, the change goes on the first request after that.",
+  "protocols": ["sotw", "delta"],
+  "serves": ["CDS", "RDS"],
+  "envoys": [{"name": "envoy", "view": "v", "delayUpdatesUntilAckOf": "RDS"}],
+  "steps": [
+    {"update": [{"setView": "v", "groups": ["g"]}, {"editGroup": "g", "put": {"CDS": [{"name": "a"}]}}]},
+    {"request": "CDS", "expect": [{"type": "CDS", "resources": [{"name": "a"}], "comment": "An answer doesn't wait"}]},
+    {"request": "CDS", "ack": "last"},
+    {"update": [{"editGroup": "g", "put": {"CDS": [{"name": "b"}]}}], "comment": "Held: the Envoy hasn't ACKed RDS"},
+    {"advance": "29s"},
+    {"request": "CDS", "comment": "Not yet 30 seconds"},
+    {"advance": "1s", "comment": "Nothing happens until a request or an update"},
+    {
+      "request": "CDS",
+      "expect": [{"type": "CDS", "sotw": {"resources": [{"name": "a"}, {"name": "b"}]}, "delta": {"resources": [{"name": "b"}]}}]
+    },
+    {"request": "CDS", "ack": "last"}
+  ]
+}

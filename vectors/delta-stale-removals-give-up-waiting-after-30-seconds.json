@@ -1,0 +1,21 @@
+{
+  "name": "delta-stale-removals-give-up-waiting-after-30-seconds",
+  "description": "A stale removal waiting for a type the Envoy may never ask for gives up after 30 seconds from the stream's first request. With no timer, it goes on the first request after that.",
+  "protocols": ["delta"],
+  "serves": ["CDS", "LDS"],
+  "envoys": [{"name": "envoy", "view": "v"}],
+  "steps": [
+    {"update": [{"setView": "v", "groups": ["g"]}, {"editGroup": "g", "put": {"CDS": [{"name": "a"}]}}]},
+    {
+      "request": "CDS",
+      "kept": ["stale"],
+      "expect": [{"type": "CDS", "resources": [{"name": "a"}], "comment": "stale waits for LDS, which this Envoy never asks for"}]
+    },
+    {"request": "CDS", "ack": "last"},
+    {"advance": "29s"},
+    {"request": "CDS", "comment": "Not yet 30 seconds"},
+    {"advance": "1s", "comment": "Nothing happens until a request or an update"},
+    {"request": "CDS", "expect": [{"type": "CDS", "removed": ["stale"]}]},
+    {"request": "CDS", "ack": "last"}
+  ]
+}
