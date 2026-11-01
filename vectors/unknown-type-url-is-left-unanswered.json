@@ -1,0 +1,12 @@
+{
+  "name": "unknown-type-url-is-left-unanswered",
+  "description": "A request for a type URL that isn't one of the eight types is left unanswered, and the stream carries on: ending it would take every other type down with it.",
+  "protocols": ["sotw", "delta"],
+  "serves": ["CDS"],
+  "envoys": [{"name": "envoy", "view": "v"}],
+  "steps": [
+    {"update": [{"setView": "v", "groups": ["g"]}, {"editGroup": "g", "put": {"CDS": [{"name": "a", "connectTimeout": "1s"}]}}]},
+    {"request": "type.googleapis.com/envoy.config.unknown.v3.Thing", "subscribe": ["x"]},
+    {"request": "CDS", "comment": "The stream carries on", "expect": [{"type": "CDS", "resources": [{"name": "a", "connectTimeout": "1s"}]}]}
+  ]
+}

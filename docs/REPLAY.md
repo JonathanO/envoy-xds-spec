@@ -35,8 +35,9 @@ no response has, is an error. The fuzzer never generates one.
 - `steps` has a list for each step run: the responses the step caused. Each has the Envoy that got it, its `type`, its
   `resources` as protobuf JSON, and on delta the names it `removed`. An Envoy's responses are in the order it got them;
   the Envoys are in the order the vector lists them.
-- When the server ends an Envoy's stream, that Envoy's list has `{"envoy": "envoy", "ended": "INVALID_ARGUMENT"}`: the
-  gRPC status code it ended with, `OK` if it ended cleanly. The run stops after that step.
+- When the server ends an Envoy's stream, that Envoy's list ends with `{"envoy": "envoy", "ended": "INVALID_ARGUMENT"}`:
+  the gRPC status code it ended with, `OK` if it ended cleanly. The run carries on, and the Envoy's next request opens
+  a new stream.
 - A run of a vector that is in error has `"error"`, a message, as well as the steps run before it.
 
 The fuzzer compares runs step by step: each Envoy's responses in order, each response's resources as a set, by name

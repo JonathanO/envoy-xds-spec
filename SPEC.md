@@ -327,6 +327,10 @@ Seen with Envoy, in the [conformance suite](conformance/README.md#conformance-su
 - A delta request that subscribes to and unsubscribes from the same name, other than `*` on a wildcard type, fails the
   stream with `INVALID_ARGUMENT`. The xDS spec doesn't say which should win, and either could be wrong.
 
+Example: [unknown-type-url-is-left-unanswered](vectors/unknown-type-url-is-left-unanswered.json).
+
+Example: [delta-subscribing-to-and-unsubscribing-from-one-name-fails-the-stream](vectors/delta-subscribing-to-and-unsubscribing-from-one-name-fails-the-stream.json).
+
 A stream that fails ends with a gRPC status that says whose fault it was:
 
 - `INVALID_ARGUMENT` for a bad request, as above.
@@ -376,6 +380,8 @@ A frozen stream stays frozen until it ends. Each port gives the user a way to cl
 reconnects, and its new stream syncs from scratch with the config as it is now. Requests on the old stream after that
 are ignored. Each port also offers a helper that does this a while after a NACK, waiting longer each time the same
 Envoy NACKs again.
+
+Example: [resync-ends-the-stream-and-envoy-syncs-afresh](vectors/resync-ends-the-stream-and-envoy-syncs-afresh.json).
 
 Seen with Envoy, in the [conformance suite](conformance/README.md#conformance-suite-for-xds-libraries):
 `containsRejectedConfig`.
@@ -513,13 +519,9 @@ These rules have no vector yet. This is the to-do list for new ones. Rules marke
 - §4.9: SotW `*`, an empty list after names, and leaving the wildcard; delta `*` in the subscribe and unsubscribe
   lists, and names subscribed to during a wildcard.
 - §4.10: a type that isn't served is answered with nothing.
-- §4.10: an unknown type URL is left unanswered (needs the format: vectors name only the eight types).
-- §4.10: subscribing to and unsubscribing from one name fails the stream with `INVALID_ARGUMENT` (needs the format: a
-  step can't expect a stream to fail).
 - §5.1: a NACK mid-change stops stale removals still waiting.
 - §5.2: a frozen stream answers a type the change left mid-way from the mid-way state, keeping what its remove round
   would have removed.
-- §5.3: resync (needs the format: a step for the user closing a stream).
 - §6.1: a waiting stale removal skips names no longer subscribed to.
 - §6.1: a resource Envoy kept that still exists is sent again.
 - §6.4: a SotW Envoy loses a cluster it kept with the first CDS answer.
