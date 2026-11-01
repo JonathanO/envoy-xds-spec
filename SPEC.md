@@ -39,7 +39,7 @@ builders return.
 
   A **wildcard** type is one Envoy may subscribe to all of at once, rather than name by name ([§4.9](#49-wildcards)).
 - **Served type**: a type the port has config for. A type that isn't served is still answered, always with nothing
-  ([§4.10](#410-types-not-served-unknown-types-and-bad-requests)).
+  ([§4.10](#410-types-not-served-and-unknown-types)).
 - **SotW** (state of the world): the protocol where each response for a type carries every resource of that type the
   Envoy subscribed to.
 - **Delta**: the protocol where each response carries only the resources added or changed, and the names removed.
@@ -305,7 +305,13 @@ answered, and later responses of the type leave those names out.
 
 A SotW request whose list is the same as the last one changes nothing, so is not answered either.
 
+A delta request that subscribes to and unsubscribes from the same name, `*` included, is handled as if the name were
+only in the subscribe list. The xDS spec doesn't say which wins, and Envoy never sends such a request. If a client did
+mean to unsubscribe, a resource it doesn't want does less harm than missing one it does.
+
 Example: [unsubscribing-gets-no-answer](vectors/unsubscribing-gets-no-answer.json).
+
+Example: [delta-a-name-in-both-lists-is-subscribed](vectors/delta-a-name-in-both-lists-is-subscribed.json).
 
 ### 4.8 Stale nonces
 
@@ -354,21 +360,16 @@ Example: [delta-wildcard-subscriptions](vectors/delta-wildcard-subscriptions.jso
 Seen with Envoy, in the [conformance suite](conformance/README.md#conformance-suite-for-xds-libraries):
 `onDemandVirtualHosts`.
 
-### 4.10 Types not served, unknown types and bad requests
+### 4.10 Types not served and unknown types
 
 - A request for a type that isn't served is answered like any other, with nothing.
 - A request for a type URL that isn't one of the eight types is logged and left unanswered. Ending the stream would
   take every other type down with it, and Envoy would only reconnect and ask again.
-- A delta request that subscribes to and unsubscribes from the same name, other than `*` on a wildcard type, fails the
-  stream with `INVALID_ARGUMENT`. The xDS spec doesn't say which should win, and either could be wrong.
 
 Example: [unknown-type-url-is-left-unanswered](vectors/unknown-type-url-is-left-unanswered.json).
 
-Example: [delta-subscribing-to-and-unsubscribing-from-one-name-fails-the-stream](vectors/delta-subscribing-to-and-unsubscribing-from-one-name-fails-the-stream.json).
-
 A stream that fails ends with a gRPC status that says whose fault it was:
 
-- `INVALID_ARGUMENT` for a bad request, as above.
 - `INTERNAL`, with the message `xds: internal error`, for the port's own failures, such as a user's config builder
   throwing, even if what it throws is itself a gRPC status. The error is logged, not sent to Envoy.
 - When the user's lookup of an Envoy's options (§3.2, §6.2) fails with a gRPC status, that status, as it is. Any

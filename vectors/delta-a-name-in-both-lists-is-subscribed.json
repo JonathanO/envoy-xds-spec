@@ -1,0 +1,145 @@
+{
+  "name": "delta-a-name-in-both-lists-is-subscribed",
+  "description": "A delta request that subscribes to and unsubscribes from the same name subscribes to it, as if it were only in the subscribe list, * included (SPEC \u00a74.7).",
+  "protocols": [
+    "delta"
+  ],
+  "serves": [
+    "CDS"
+  ],
+  "envoys": [
+    {
+      "name": "envoy",
+      "view": "v"
+    }
+  ],
+  "steps": [
+    {
+      "update": [
+        {
+          "setView": "v",
+          "groups": [
+            "g"
+          ]
+        },
+        {
+          "editGroup": "g",
+          "put": {
+            "CDS": [
+              {
+                "name": "a",
+                "connectTimeout": "1s"
+              },
+              {
+                "name": "b",
+                "connectTimeout": "1s"
+              },
+              {
+                "name": "c",
+                "connectTimeout": "1s"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "request": "CDS",
+      "subscribe": [
+        "a"
+      ],
+      "expect": [
+        {
+          "type": "CDS",
+          "resources": [
+            {
+              "name": "a",
+              "connectTimeout": "1s"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "request": "CDS",
+      "ack": "last",
+      "subscribe": [
+        "a",
+        "b"
+      ],
+      "unsubscribe": [
+        "a",
+        "b"
+      ],
+      "expect": [
+        {
+          "type": "CDS",
+          "resources": [
+            {
+              "name": "a",
+              "connectTimeout": "1s"
+            },
+            {
+              "name": "b",
+              "connectTimeout": "1s"
+            }
+          ],
+          "comment": "Both answered, as subscriptions are: a too, though Envoy has it"
+        }
+      ]
+    },
+    {
+      "request": "CDS",
+      "ack": "last",
+      "subscribe": [
+        "*"
+      ],
+      "unsubscribe": [
+        "*"
+      ],
+      "expect": [
+        {
+          "type": "CDS",
+          "resources": [
+            {
+              "name": "c",
+              "connectTimeout": "1s"
+            }
+          ],
+          "comment": "The wildcard starts: c is all Envoy wasn't subscribed to"
+        }
+      ]
+    },
+    {
+      "request": "CDS",
+      "ack": "last"
+    },
+    {
+      "update": [
+        {
+          "editGroup": "g",
+          "put": {
+            "CDS": [
+              {
+                "name": "a",
+                "connectTimeout": "2s"
+              }
+            ]
+          }
+        }
+      ],
+      "expect": [
+        {
+          "type": "CDS",
+          "resources": [
+            {
+              "name": "a",
+              "connectTimeout": "2s"
+            }
+          ],
+          "comment": "a is still subscribed to"
+        }
+      ]
+    }
+  ]
+}
