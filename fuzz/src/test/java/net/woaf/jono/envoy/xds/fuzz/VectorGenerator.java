@@ -29,8 +29,6 @@ final class VectorGenerator {
 
     private static final List<String> NAMES = List.of("a", "b", "c", "*");
 
-    private static final Set<String> WILDCARD_TYPES = Set.of("LDS", "CDS", "SRDS", "VHDS");
-
     private static final List<String> GROUPS = List.of("g1", "g2", "g3");
 
     private static final List<String> VIEWS = List.of("v1", "v2");
@@ -173,13 +171,6 @@ final class VectorGenerator {
         step.addProperty("envoy", envoy);
         Set<String> subscribe = tc.draw(sets(sampledFrom(NAMES)), "subscribe");
         Set<String> unsubscribe = new TreeSet<>(tc.draw(sets(sampledFrom(NAMES)), "unsubscribe"));
-        // On delta, a name in both fails the stream (SPEC §4.10), so only sometimes. * may be in both on a wildcard type;
-        // on any other type it's a name like any other.
-        boolean wildcard = WILDCARD_TYPES.contains(type);
-        if (!tc.generateBoolean(0.05)) {
-            unsubscribe.removeIf(n -> !(wildcard && n.equals("*")) && subscribe.contains(n));
-        }
-        boolean fails = protocol.equals("delta") && unsubscribe.stream().anyMatch(n -> !(wildcard && n.equals("*")) && subscribe.contains(n));
         if (!subscribe.isEmpty()) {
             step.add("subscribe", array(new TreeSet<>(subscribe)));
         }
@@ -199,9 +190,6 @@ final class VectorGenerator {
             step.add("kept", array(new TreeSet<>(tc.draw(sets(sampledFrom(NAMES.subList(0, 3))).minSize(1), "kept"))));
         }
         asked.add(type);
-        if (fails) {
-            streams.remove(envoy); // the server ends the stream, so its next request opens a new one
-        }
         return step;
     }
 
